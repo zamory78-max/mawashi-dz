@@ -2184,7 +2184,7 @@ function openAI(mode, sheepId) {
 function setAIMode(m) { aiState.mode = m; aiState.result = null; renderAI(); }
 async function aiPick(ev) {
   const f = ev.target.files[0]; if (!f) return;
-  try { aiState.photo = await resizeImage(f, 1024, 0.8); aiState.result = null; renderAI(); } catch (_) { toast('تعذّر قراءة الصورة', 'error'); }
+  try { aiState.photo = await resizeImage(f, 1024, 0.8); aiState.saved = window.__nativeSaved === true; window.__nativeSaved = false; aiState.result = null; renderAI(); } catch (_) { toast('تعذّر قراءة الصورة', 'error'); }
 }
 function aiSheep(v) { aiState.sheepId = v; }
 function aiTeeth(i) { aiState.teeth = i; aiState.result = aiLocalAge(i); renderAI(); }
@@ -2262,10 +2262,15 @@ function aiHumanPrompt() {
 }
 function aiSaveToGallery(quiet) {
   if (!aiState.photo) { if (!quiet) toast('التقط صورة أولاً', 'error'); return false; }
+  if (isNativeApp()) {
+    if (aiState.saved) { if (!quiet) toast('الصورة محفوظة في المعرض عند الالتقاط', 'success'); return true; }
+    if (!quiet) toast('هذه الصورة لم تُحفظ في المعرض. التقطها بالزر «📸 التقاط» لتُحفظ تلقائياً، أو اخترها من المعرض إن كانت موجودة فيه', 'error');
+    return false;
+  }
   try {
-    const a = document.createElement('a'); a.href = aiState.photo; a.download = `مواشي_فحص_${Date.now()}.jpg`;
+    const a = document.createElement('a'); a.href = aiState.photo; a.download = `mawashi_scan_${Date.now()}.jpg`;
     document.body.appendChild(a); a.click(); a.remove();
-    if (!quiet) toast('تم حفظ الصورة — ستجدها في المعرض (ألبوم Download) أو في التنزيلات', 'success');
+    if (!quiet) toast('طُلب تنزيل الصورة. ابحثها في التنزيلات أو ألبوم Download؛ إن لم تجدها فالتقطها بتطبيق الكاميرا العادي', 'info');
     return true;
   } catch (_) { if (!quiet) toast('تعذّر حفظ الصورة', 'error'); return false; }
 }
@@ -2280,9 +2285,8 @@ async function aiCopyPrompt() {
 }
 function aiOpenExternal(which) {
   aiCopyPrompt();
-  const isNative = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
-  if (aiState.photo && !isNative) aiSaveToGallery(true);
-  if (aiState.photo) toast('تم نسخ السؤال وحفظ الصورة. في Gemini اضغط إرفاق ثم اختر الصورة من المعرض', 'success');
+  if (aiState.photo && !isNativeApp()) aiSaveToGallery(true);
+  if (aiState.photo) toast('تم نسخ السؤال. في Gemini اضغط إرفاق واختر الصورة من المعرض (أو استعمل زر المشاركة المباشرة)', 'success');
   const url = which === 'lens' ? 'https://lens.google.com/' : 'https://gemini.google.com/app';
   setTimeout(() => { try { window.open(url, '_blank'); } catch (_) { location.href = url; } }, 400);
 }
@@ -2296,17 +2300,15 @@ async function aiShareExternal() {
     const blob = await (await fetch(aiState.photo)).blob();
     const file = new File([blob], 'sheep.jpg', { type: 'image/jpeg' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text, title: 'فحص حيوان' }); return; }
-    const C = window.Capacitor;
-    if (C && C.registerPlugin) {
-      const FS = C.registerPlugin('Filesystem'), SH = C.registerPlugin('Share');
+    const FS = capPlugin('Filesystem'), SH = capPlugin('Share');
+    if (FS && SH) {
       const w = await Promise.race([FS.writeFile({ path: 'sheep-scan.jpg', data: aiState.photo.split(',')[1], directory: 'CACHE' }), new Promise((_, rj) => setTimeout(() => rj(new Error('timeout writing file')), 8000))]);
       await Promise.race([SH.share({ text, files: [w.uri], dialogTitle: 'اختر Gemini أو Google' }), new Promise((_, rj) => setTimeout(() => rj(new Error('timeout share')), 15000))]);
       return;
     }
     why = 'المشاركة المباشرة غير متاحة هنا';
   } catch (e) { if (e && e.name === 'AbortError') return; why = String((e && (e.message || e.errorMessage)) || e).slice(0, 70); }
-  aiSaveToGallery(true);
-  toast('تم نسخ السؤال وحفظ الصورة في المعرض. اضغط «فتح Gemini» ثم أرفق الصورة من المعرض', 'success');
+  toast(`تعذّرت المشاركة المباشرة (${why}). تم نسخ السؤال: اضغط «فتح Gemini» ثم أرفق الصورة من المعرض`, 'error');
 }
 const LIK = { high: ['محتمل جداً', 'bg-red-100 text-red-800'], medium: ['محتمل', 'bg-amber-100 text-amber-800'], low: ['ممكن', 'bg-gray-100 text-gray-700'] };
 const monthsText = m => m < 24 ? `${Math.round(m)} شهراً` : `${(m / 12).toFixed(m % 12 ? 1 : 0)} سنة`;
@@ -2386,10 +2388,20 @@ function saveAIKey() {
 }
 
 /* داخل تطبيق الأندرويد: نستعمل إضافة الكاميرا الأصلية بدل نافذة اختيار الملفات في WebView (لأنها قد تفشل في إرجاع الصورة) */
+/* وصول آمن للإضافات الأصلية: بدون حزمة (bundler) قد لا تتوفر Capacitor.registerPlugin، فنستعمل Capacitor.Plugins */
+function capPlugin(name) {
+  const C = window.Capacitor; if (!C) return null;
+  try { if (typeof C.registerPlugin === 'function') return C.registerPlugin(name); } catch (_) {}
+  return (C.Plugins && C.Plugins[name]) || null;
+}
+function isNativeApp() {
+  const C = window.Capacitor; if (!C) return false;
+  try { if (typeof C.isNativePlatform === 'function') return !!C.isNativePlatform(); if (typeof C.getPlatform === 'function') return C.getPlatform() !== 'web'; } catch (_) {}
+  return false;
+}
 function setupNativePhotoPicker() {
-  const C = window.Capacitor;
-  if (!(C && C.isNativePlatform && C.isNativePlatform() && C.registerPlugin)) return;
-  const Cam2 = C.registerPlugin('Camera');
+  if (!isNativeApp()) return;
+  const Cam2 = capPlugin('Camera'); if (!Cam2) return;
   let bypass = false;
   document.addEventListener('click', async ev => {
     const el = ev.target;
@@ -2403,6 +2415,7 @@ function setupNativePhotoPicker() {
       try { r = await Cam2.getPhoto({ ...opts, saveToGallery: cap }); }
       catch (e1) { if (/cancel|dismiss/i.test(String((e1 && e1.message) || e1))) throw e1; r = await Cam2.getPhoto({ ...opts, saveToGallery: false }); }
       if (!r || !r.dataUrl) throw new Error('empty result');
+      window.__nativeSaved = r.saved === true;
       step = 'convert';
       const blob = await (await fetch(r.dataUrl)).blob();
       const file = new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' });
