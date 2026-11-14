@@ -294,6 +294,7 @@
     <div class="flex items-center justify-between gap-2">
       <h2 class="font-bold text-brand-900 text-base">🩺 البيطري والفحوصات</h2>
       <div class="flex gap-2">
+        <button onclick="openAI('health')" class="btn bg-purple-700 text-white shadow">🧠 فحص ذكي</button>
         <button onclick="openVets()" class="btn bg-earth-100 text-earth-800 border border-earth-300">👨‍⚕️ الأطباء</button>
         <button onclick="openVisitModal()" class="btn bg-brand-700 text-white shadow">+ زيارة</button>
       </div>
@@ -346,6 +347,13 @@
         <button onclick="saveSettings()" class="btn w-full bg-brand-700 text-white">حفظ الإعدادات</button>
       </div>
       <div class="space-y-2 border-t pt-3">
+        <h4 class="font-bold text-sm text-gray-800">🧠 الذكاء الاصطناعي (اختياري)</h4>
+        <p class="text-gray-500">لتحليل الصور بالذكاء الاصطناعي أدخل مفتاح Anthropic API الخاص بك. يُحفظ على هذا الجهاز فقط ولا يدخل في النسخ الاحتياطي. استعمل مفتاحاً بحدّ إنفاق محدّد. بدونه يعمل الفحص بدون إنترنت.</p>
+        <p id="aiKeyState" class="font-bold text-gray-700"></p>
+        <input id="setAiKey" type="password" dir="ltr" class="inp" placeholder="sk-ant-..." autocomplete="off">
+        <button onclick="saveAIKey()" class="btn w-full bg-purple-700 text-white">حفظ / حذف المفتاح</button>
+      </div>
+      <div class="space-y-2 border-t pt-3">
         <h4 class="font-bold text-sm text-gray-800">🔑 الترخيص</h4>
         <p id="licInfo" class="font-bold text-gray-700"></p>
         <p class="text-gray-500">رقم الجهاز: <span id="licDeviceInfo" class="font-mono font-bold" dir="ltr"></span></p>
@@ -379,6 +387,12 @@
 </div>
 
 <!-- تفاصيل رأس وسجل الأحداث -->
+<div id="aiModal" class="modal fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-3 overflow-y-auto" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl my-auto">
+    <div class="p-3.5 bg-purple-800 text-white flex items-center justify-between"><h3 class="font-bold text-sm">🧠 الفحص الذكي</h3><button onclick="closeModal('aiModal')" aria-label="إغلاق" class="px-2 py-1 rounded hover:bg-white/20 font-bold">✕</button></div>
+    <div id="aiBody" class="p-4 space-y-3 max-h-[82vh] overflow-y-auto text-xs"></div>
+  </div>
+</div>
 <div id="detailModal" class="modal fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-3 overflow-y-auto" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
   <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl my-auto">
     <div class="p-3.5 bg-brand-800 text-white flex items-center justify-between"><h3 id="detailTitle" class="font-bold text-sm">السجل الصحي</h3><button onclick="closeModal('detailModal')" aria-label="إغلاق" class="px-2 py-1 rounded hover:bg-white/20 font-bold">✕</button></div>
@@ -1139,6 +1153,7 @@ function renderDetail() {
       ${s.birthDate ? `<span class="chip bg-gray-100 text-gray-700">العمر: ${ageText(s.birthDate) || '—'}</span>` : ''}${s.weight ? `<span class="chip bg-gray-100 text-gray-700">${s.weight} كغ</span>` : ''}
       ${exp ? `<span class="chip bg-pink-50 text-pink-800">🍼 الولادة المتوقعة ${d8(exp)}</span>` : ''}</div>
     ${s.gender === 'ewe' ? `<button onclick="openSheepModal(null,{motherId:'${s.id}',birthDate:'${today()}'})" class="btn w-full bg-pink-50 text-pink-800 border border-pink-200">🍼 تسجيل مولود جديد لهذه النعجة</button>` : ''}
+    <div class="grid grid-cols-2 gap-2"><button onclick="openAI('age','${s.id}')" class="btn bg-purple-50 text-purple-800 border border-purple-200">🦷 تقدير العمر</button><button onclick="openAI('health','${s.id}')" class="btn bg-purple-50 text-purple-800 border border-purple-200">🧠 تشخيص ذكي</button></div>
     ${adg}
     <form onsubmit="addEvent(event)" class="border rounded-xl p-3 space-y-2 bg-gray-50">
       <h4 class="font-bold text-gray-800">➕ إضافة حدث</h4>
@@ -1988,6 +2003,7 @@ function openSettings() {
   $('setFarm').value = s.farm || ''; $('setPhone').value = s.phone || ''; $('setPlace').value = s.place || ''; $('setWage').value = s.wage || '';
   let size = 0; try { size = (localStorage.getItem(DB_KEY) || '').length; } catch (_) {}
   $('backupInfo').textContent = `حجم البيانات: ${(size / 1024).toFixed(0)} كيلوبايت • ${db.sheep.length} بطاقة • آخر نسخة احتياطية: ${s.lastBackup ? d8(s.lastBackup) : 'لا يوجد'}`;
+  $('aiKeyState').textContent = aiGetKey() ? '✅ المفتاح محفوظ على هذا الجهاز' : 'لا يوجد مفتاح';
   openModal('settingsModal');
 }
 function saveSettings() {
@@ -2067,6 +2083,249 @@ function resetAll() {
   if (!confirm('⚠️ سيتم مسح كل البيانات والصور نهائياً من هذا الجهاز.\nهل حفظت نسخة احتياطية؟')) return;
   if (prompt('للتأكيد اكتب كلمة: مسح') !== 'مسح') return toast('أُلغي المسح', 'info');
   db = defaultDB(); Photos.clear(); saveDB(); closeModal('settingsModal'); renderAll(); toast('تم مسح كل البيانات', 'success');
+}
+
+/* =====================================================================
+   الفحص الذكي: تقدير العمر من الأسنان + تشخيص مبدئي للأمراض
+   - يعمل بدون إنترنت (جدول الأسنان + قاعدة أمراض بالأعراض)
+   - وبتحليل الصورة بالذكاء الاصطناعي (Claude) عند وجود مفتاح API في الإعدادات
+   ===================================================================== */
+const AI_KEY_STORE = 'mw_ai_key', AI_MODEL = 'claude-sonnet-5-5';
+const aiGetKey = () => { try { return localStorage.getItem(AI_KEY_STORE) || ''; } catch (_) { return ''; } };
+const TEETH = [
+  { id: 0, t: 'أسنان لبنية صغيرة فقط (لا قواطع دائمة عريضة)', min: 0, max: 12, name: 'حمل صغير' },
+  { id: 1, t: 'قاطعان دائمان عريضان في الوسط (زوج واحد)', min: 12, max: 18, name: 'حولي (≈ سنة)' },
+  { id: 2, t: '4 قواطع دائمة (زوجان)', min: 18, max: 26, name: 'ثني (≈ سنتان)' },
+  { id: 3, t: '6 قواطع دائمة (3 أزواج)', min: 26, max: 36, name: 'ثلاثي الأسنان (≈ 2.5–3 سنوات)' },
+  { id: 4, t: '8 قواطع دائمة — الفم كامل بلا تآكل', min: 36, max: 48, name: 'فم كامل (3–4 سنوات)' },
+  { id: 5, t: 'فم كامل مع بداية تآكل في الحواف', min: 48, max: 60, name: 'بالغ (4–5 سنوات)' },
+  { id: 6, t: 'أسنان متآكلة ومتباعدة', min: 60, max: 84, name: 'كبير (5–7 سنوات)' },
+  { id: 7, t: 'أسنان ساقطة أو مكسورة (فم مكسور)', min: 84, max: 120, name: 'مُسِنّ (أكثر من 7 سنوات)' }
+];
+const SYMS = [
+  ['عام', [['fever', 'حرارة مرتفعة'], ['anorexia', 'فقدان الشهية'], ['weak', 'خمول وضعف'], ['weightloss', 'هزال ونحافة'], ['sudden', 'موت أو انهيار مفاجئ'], ['recumbent', 'لا يستطيع الوقوف']]],
+  ['تنفسي', [['cough', 'سعال'], ['nasal', 'إفرازات أنفية'], ['dyspnea', 'صعوبة في التنفس']]],
+  ['هضمي', [['diarrhea', 'إسهال'], ['bloody_diarrhea', 'إسهال دموي'], ['bloat', 'انتفاخ البطن (يسار)'], ['drooling', 'سيلان اللعاب'], ['mouth_sores', 'تقرحات في الفم/الشفتين'], ['pale_mm', 'شحوب العين واللثة'], ['bottle_jaw', 'تورم تحت الفك']]],
+  ['الجلد', [['scabs', 'قشور وحكّة'], ['wool_loss', 'تساقط الصوف'], ['nodules', 'بثور/عقد جلدية'], ['ticks', 'قراد أو قمل ظاهر']]],
+  ['أعصاب', [['circling', 'دوران حول النفس'], ['tremor', 'رعشة وتشنجات']]],
+  ['الأطراف', [['limp', 'عرج'], ['hoof_rot', 'رائحة كريهة/تعفن بالحافر'], ['foot_blisters', 'بثور بين الأظلاف']]],
+  ['التناسل والضرع', [['abortion', 'إجهاض'], ['retained', 'احتباس المشيمة'], ['udder_swollen', 'ضرع متورم وساخن'], ['milk_abn', 'حليب متغير/متجلط'], ['late_preg', 'نعجة في آخر الحمل']]],
+  ['العين واللسان', [['eye_discharge', 'احمرار/إفرازات العين'], ['blue_tongue', 'لسان متورم أو مزرق']]]
+];
+const SYM_LABEL = Object.fromEntries(SYMS.flatMap(g => g[1]));
+const DISEASES = [
+  { n: 'التسمم المعوي (كلوستريديا)', s: ['sudden', 'bloat', 'diarrhea', 'tremor', 'recumbent', 'circling', 'anorexia'], urgent: 1,
+    why: 'شائع في الحملان والمسمَّنة بعد تغيير العلف المفاجئ أو الإفراط في الشعير.',
+    do: ['اعزل الحيوان فوراً وأوقف العلف المركّز.', 'وفّر ماء نظيفاً وظلاً وهدوءاً.', 'اتصل بالبيطري حالاً — الحالة تتطور بسرعة وقد تنتهي بالنفوق خلال ساعات.', 'الوقاية: لقاح التسمم المعوي (قبل الولادة وللحملان) وتدرّج في تغيير العلف.'] },
+  { n: 'طاعون المجترات الصغيرة (PPR)', s: ['fever', 'nasal', 'mouth_sores', 'diarrhea', 'cough', 'dyspnea', 'eye_discharge', 'anorexia'], urgent: 1, contagious: 1, notify: 1,
+    why: 'مرض فيروسي شديد العدوى: حمى وإفرازات عين وأنف وتقرحات فم ثم إسهال.',
+    do: ['اعزل المريض فوراً بعيداً عن القطيع.', 'أبلغ البيطري والمصالح البيطرية (مرض يُبلَّغ عنه).', 'امنع الاختلاط وحركة الحيوانات وعقّم الأدوات والأحذية.', 'الوقاية: التلقيح ضد PPR حسب برنامج البيطري.'] },
+  { n: 'الحمى القلاعية', s: ['fever', 'drooling', 'mouth_sores', 'foot_blisters', 'limp', 'anorexia', 'udder_swollen'], urgent: 1, contagious: 1, notify: 1,
+    why: 'حمى مع سيلان لعاب وبثور في الفم وبين الأظلاف وعرج.',
+    do: ['اعزل فوراً وأبلغ المصالح البيطرية (مرض يُبلَّغ عنه).', 'امنع دخول وخروج الحيوانات والأشخاص من الحظيرة.', 'نظّف وعقّم الأحذية والمعدات.', 'لا تبِع الحيوانات ولا تنقلها.'] },
+  { n: 'جدري الأغنام', s: ['fever', 'nodules', 'eye_discharge', 'nasal', 'anorexia', 'wool_loss'], urgent: 1, contagious: 1, notify: 1,
+    why: 'بثور وعقد على الجلد خصوصاً في المناطق قليلة الصوف مع حمى.',
+    do: ['اعزل المصاب وأبلغ البيطري (مرض يُبلَّغ عنه).', 'لا تلمس البثور دون قفازات.', 'الوقاية: لقاح الجدري السنوي في المناطق الموبوءة.'] },
+  { n: 'اللسان الأزرق', s: ['fever', 'blue_tongue', 'drooling', 'limp', 'eye_discharge', 'nasal', 'anorexia'], urgent: 1, notify: 1,
+    why: 'ينتقل بالحشرات (البعوض/الذباب) ويظهر بحمى وتورم الفم واللسان وعرج.',
+    do: ['أبعد المريض إلى مكان مظلل وقدّم ماءً وعلفاً ليناً.', 'أبلغ البيطري.', 'قلّل الحشرات حول الحظيرة (تجفيف المياه الراكدة) واستعمل طاردات مناسبة.'] },
+  { n: 'التهاب رئوي', s: ['cough', 'nasal', 'dyspnea', 'fever', 'anorexia', 'weak'], urgent: 0, contagious: 1,
+    why: 'يزداد مع البرد والرطوبة والازدحام وسوء التهوية.',
+    do: ['اعزل الحيوان في مكان دافئ جاف جيد التهوية دون تيار هواء مباشر.', 'قِس الحرارة واتصل بالبيطري ليحدد المضاد الحيوي المناسب (لا تعطِ أدوية عشوائية).', 'خفّف الازدحام في الحظيرة.'] },
+  { n: 'كوكسيديا / إسهال معوي', s: ['diarrhea', 'bloody_diarrhea', 'weightloss', 'weak', 'anorexia'], urgent: 0, contagious: 1,
+    why: 'شائع في الحملان الصغيرة وفي الحظائر المبتلة والمزدحمة.',
+    do: ['اعزل المصابين وعوّض السوائل (ماء نظيف وأملاح معالجة الجفاف).', 'نظّف الفرشة وجفّفها يومياً ومنع تلوث العلف والماء بالروث.', 'اعرض عيّنة روث على البيطري لتحديد العلاج المناسب.'] },
+  { n: 'انتفاخ الكرش', s: ['bloat', 'dyspnea', 'weak', 'anorexia', 'recumbent'], urgent: 1,
+    why: 'غازات في الكرش بعد برسيم/علف أخضر رطب أو إفراط في المركّز.',
+    do: ['حالة طارئة: ارفع مقدمة الجسم وحرّك الحيوان بهدوء.', 'اتصل بالبيطري فوراً.', 'امنع العلف الأخضر الرطب والتغيير المفاجئ في العلف.'] },
+  { n: 'الجرب', s: ['scabs', 'wool_loss', 'weightloss'], urgent: 0, contagious: 1,
+    why: 'حكّة شديدة وتساقط صوف وقشور بسبب عثّ الجرب.',
+    do: ['اعزل المصابين.', 'استشر البيطري لاختيار المبيد/العلاج المناسب وطريقة الاستعمال.', 'عقّم الحظيرة والأدوات وكرّر المعالجة حسب توصية البيطري.'] },
+  { n: 'طفيليات خارجية (قراد/قمل)', s: ['ticks', 'scabs', 'wool_loss', 'pale_mm', 'weak'], urgent: 0, contagious: 1,
+    why: 'تضعف الحيوان وقد تنقل أمراض الدم.',
+    do: ['استعمل مبيداً خارجياً مرخّصاً بإشراف البيطري.', 'نظّف الحظيرة واحرق/اتلف الفرشة القديمة.'] },
+  { n: 'الديدان المعوية (الدودة الملتوية)', s: ['pale_mm', 'bottle_jaw', 'weightloss', 'weak', 'diarrhea', 'anorexia'], urgent: 0,
+    why: 'تسبب فقر دم وشحوب وتورم تحت الفك خصوصاً في الربيع والخريف.',
+    do: ['اعرض عيّنة روث على البيطري ثم استعمل المضاد للديدان المناسب.', 'ناوب المراعي ولا تفرط في الرعي المنخفض.', 'غذِّ الحيوان جيداً (بروتين وحديد) أثناء العلاج.'] },
+  { n: 'الدودة الكبدية (الفاشيولا)', s: ['bottle_jaw', 'weightloss', 'pale_mm', 'weak'], urgent: 0,
+    why: 'تنتشر قرب المستنقعات والمراعي الرطبة.',
+    do: ['استشر البيطري لتحديد الدواء المناسب لمرحلة الإصابة.', 'امنع الرعي قرب المياه الراكدة.'] },
+  { n: 'التهاب الضرع', s: ['udder_swollen', 'milk_abn', 'fever', 'anorexia'], urgent: 0,
+    why: 'ضرع ساخن متورم أو حليب متجلط/دموي.',
+    do: ['افرغ الضرع برفق عدة مرات يومياً ولا تُرضع المولود من الضرع المصاب دون استشارة.', 'اتصل بالبيطري للعلاج.', 'حافظ على نظافة الفرشة وغسل اليدين.'] },
+  { n: 'تعفّن الحافر', s: ['limp', 'hoof_rot', 'foot_blisters'], urgent: 0, contagious: 1,
+    why: 'عرج مع رائحة كريهة بالحافر وغالباً في أرض رطبة.',
+    do: ['قصّ الحافر المتآكل ونظّفه بمطهّر.', 'مرّر القطيع في حمّام حوافر وأبقِ الأرض جافة.', 'استشر البيطري إن لم يتحسن خلال أيام.'] },
+  { n: 'الإجهاض المعدي (البروسيلا)', s: ['abortion', 'retained', 'fever', 'udder_swollen', 'weak'], urgent: 1, contagious: 1, notify: 1, zoonotic: 1,
+    why: 'إجهاض في آخر الحمل واحتباس مشيمة. ينتقل إلى الإنسان (الحمى المالطية).',
+    do: ['اعزل النعجة والجنين والمشيمة، وتعامل معهم بقفازات وكمامة.', 'ادفن/أتلف المخلفات ولا تلمسها بيد مكشوفة.', 'لا تشرب الحليب الخام ولا تقدمه.', 'أبلغ البيطري لإجراء التحليل.'] },
+  { n: 'توكسيميا الحمل (الكيتوزيس)', s: ['late_preg', 'weak', 'recumbent', 'anorexia', 'tremor', 'circling'], urgent: 1,
+    why: 'تصيب النعاج الحوامل (توائم غالباً) في آخر الحمل بنقص الطاقة.',
+    do: ['اتصل بالبيطري فوراً — حالة خطيرة.', 'قدّم علفاً سهل الهضم وماءً دافئاً.', 'الوقاية: تغذية جيدة في الشهر الأخير وتقليل الإجهاد.'] },
+  { n: 'نقص كالسيوم (حمى اللبن)', s: ['late_preg', 'tremor', 'recumbent', 'weak'], urgent: 1,
+    why: 'ينتج عن نقص الكالسيوم قبل الولادة أو بعدها بقليل.',
+    do: ['اتصل بالبيطري حالاً للعلاج بالحقن المناسب.', 'ضع الحيوان على فرشة جافة وانقله بلطف.'] },
+  { n: 'الأكتيما المعدية (التهاب الفم المعدي)', s: ['mouth_sores', 'nodules', 'scabs', 'anorexia'], urgent: 0, contagious: 1, zoonotic: 1,
+    why: 'قشور وتقرحات على الشفتين وحول الفم، وتنتقل إلى الإنسان.',
+    do: ['تعامل مع الحيوان بقفازات واغسل يديك جيداً.', 'قدّم علفاً ليناً للحملان الصغيرة.', 'استشر البيطري إن كانت الإصابة واسعة.'] },
+  { n: 'التهاب العين المعدي', s: ['eye_discharge'], urgent: 0, contagious: 1,
+    why: 'احمرار ودموع وغشاوة في العين وينتقل بالذباب.',
+    do: ['اعزل الحيوان في مكان مظلل.', 'نظّف العين بمحلول معقّم لطيف وراجع البيطري لوصف المرهم المناسب.', 'قلّل الذباب والغبار.'] },
+  { n: 'الجمرة الخبيثة', s: ['sudden', 'bloody_diarrhea', 'fever'], urgent: 1, contagious: 1, notify: 1, zoonotic: 1,
+    why: 'موت مفاجئ مع نزف من الفتحات الطبيعية. خطيرة على الإنسان.',
+    do: ['لا تفتح الذبيحة ولا تذبح الحيوان ولا تأكل لحمه.', 'أبلغ المصالح البيطرية فوراً وابتعد عن الجثة.', 'اغسل اليدين جيداً وراجع الطبيب إن لمستَ الدم أو الجثة.'] }
+];
+const aiState = { mode: 'age', sheepId: '', photo: null, teeth: null, syms: new Set(), temp: '', text: '', result: null, busy: false };
+const sheepOptions = sel => `<option value="">— غير مسجل / اختر بطاقة —</option>` + db.sheep.filter(s => s.status !== 'sold').map(s => `<option value="${esc(s.id)}" ${s.id === sel ? 'selected' : ''}>${esc(s.tag)} • ${esc(s.breed || '')}</option>`).join('');
+function openAI(mode, sheepId) {
+  Object.assign(aiState, { mode: mode || 'age', sheepId: sheepId || '', photo: null, teeth: null, syms: new Set(), temp: '', text: '', result: null, busy: false });
+  closeModal('detailModal'); renderAI(); openModal('aiModal');
+}
+function setAIMode(m) { aiState.mode = m; aiState.result = null; renderAI(); }
+async function aiPick(ev) {
+  const f = ev.target.files[0]; if (!f) return;
+  try { aiState.photo = await resizeImage(f, 1024, 0.8); aiState.result = null; renderAI(); } catch (_) { toast('تعذّر قراءة الصورة', 'error'); }
+}
+function aiSheep(v) { aiState.sheepId = v; }
+function aiTeeth(i) { aiState.teeth = i; aiState.result = aiLocalAge(i); renderAI(); }
+function aiSym(id) { aiState.syms.has(id) ? aiState.syms.delete(id) : aiState.syms.add(id); renderAI(true); }
+function aiLocalAge(i) {
+  const t = TEETH[i];
+  return { kind: 'age', src: 'local', min: t.min, max: t.max, name: t.name, note: `حسب عدّ القواطع الدائمة: ${t.t}.` };
+}
+function aiLocalHealth() {
+  const sel = new Set(aiState.syms); const tmp = num(aiState.temp); if (tmp >= 40.5) sel.add('fever');
+  if (!sel.size) return null;
+  const list = DISEASES.map(d => {
+    const m = d.s.filter(x => sel.has(x)).length;
+    return { d, sc: m ? (m / d.s.length) * 0.6 + (m / sel.size) * 0.4 : 0, m };
+  }).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc || (b.d.urgent || 0) - (a.d.urgent || 0)).slice(0, 4);
+  return { kind: 'health', src: 'local', temp: tmp, items: list.map(x => ({ name: x.d.n, lik: x.sc >= 0.6 ? 'high' : x.sc >= 0.4 ? 'medium' : 'low', why: x.d.why, urgent: !!x.d.urgent, contagious: !!x.d.contagious, notify: !!x.d.notify, zoonotic: !!x.d.zoonotic, advice: x.d.do })) };
+}
+function aiAnalyzeLocal() {
+  if (aiState.mode === 'age') { if (aiState.teeth == null) return toast('اختر الوصف الأقرب لأسنان الحيوان', 'error'); aiState.result = aiLocalAge(aiState.teeth); }
+  else { const r = aiLocalHealth(); if (!r) return toast('اختر عرضاً واحداً على الأقل', 'error'); aiState.result = r; }
+  renderAI();
+}
+function aiParseJSON(txt) {
+  const a = txt.indexOf('{'), b = txt.lastIndexOf('}');
+  if (a < 0 || b < a) throw new Error('no json');
+  return JSON.parse(txt.slice(a, b + 1));
+}
+async function aiCall(prompt, photo) {
+  const key = aiGetKey();
+  const content = [];
+  if (photo) content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: photo.split(',')[1] } });
+  content.push({ type: 'text', text: prompt });
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: AI_MODEL, max_tokens: 1200, messages: [{ role: 'user', content }] })
+  });
+  if (r.status === 401 || r.status === 403) throw new Error('KEY');
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json();
+  return (j.content || []).map(c => c.text || '').join('');
+}
+async function aiAnalyzeAI() {
+  if (aiState.busy) return;
+  if (!aiGetKey()) return toast('أضف مفتاح الذكاء الاصطناعي من الإعدادات أولاً (أو استعمل التحليل بدون إنترنت)', 'error');
+  if (!aiState.photo) return toast('التقط أو اختر صورة أولاً', 'error');
+  if (!navigator.onLine) return toast('لا يوجد اتصال بالإنترنت', 'error');
+  aiState.busy = true; renderAI();
+  try {
+    let prompt, res;
+    if (aiState.mode === 'age') {
+      prompt = `أنت خبير في تربية الأغنام. الصورة لفم/أسنان خروف أو نعجة. قدّر العمر من القواطع الدائمة السفلية وحالة التآكل.${aiState.teeth != null ? ` المربّي وصف الأسنان بأنها: ${TEETH[aiState.teeth].t}.` : ''}
+أجب بـ JSON فقط بدون أي نص آخر: {"readable":true|false,"incisor_pairs":عدد أزواج القواطع الدائمة أو null,"age_months_min":رقم,"age_months_max":رقم,"confidence":"low|medium|high","note":"شرح موجز بالعربية لما تراه وما يحدّ من الدقة"}. إن لم تكن الأسنان واضحة اجعل readable=false واشرح السبب.`;
+      const j = aiParseJSON(await aiCall(prompt, aiState.photo));
+      if (!j.readable || !(j.age_months_max > 0)) res = { kind: 'age', src: 'ai', unreadable: true, note: String(j.note || 'الصورة غير واضحة، أعد التصوير بحيث تظهر القواطع السفلية.') };
+      else res = { kind: 'age', src: 'ai', min: num(j.age_months_min), max: num(j.age_months_max), name: j.incisor_pairs != null ? `${j.incisor_pairs} أزواج قواطع دائمة` : '', conf: j.confidence, note: String(j.note || '') };
+    } else {
+      const symTxt = [...aiState.syms].map(x => SYM_LABEL[x]).join('، ');
+      prompt = `أنت طبيب بيطري خبير في أمراض الأغنام في شمال أفريقيا (الجزائر). حلّل الصورة (جلد/عين/فم/حافر/براز/ضرع أو حالة عامة) مع المعطيات.
+الأعراض التي لاحظها المربّي: ${symTxt || 'لم يحدد'}.${aiState.temp ? ` الحرارة: ${aiState.temp}°م.` : ''}${aiState.text ? ` وصف إضافي: ${aiState.text}.` : ''}
+أجب بـ JSON فقط: {"findings":"ما تراه في الصورة بالعربية","possible":[{"name":"اسم المرض بالعربية","likelihood":"high|medium|low","why":"سبب الترجيح","urgent":true|false,"contagious":true|false,"notifiable":true|false,"zoonotic":true|false,"advice":["خطوات إسعاف وتدبير عملية بدون جرعات دوائية"]}],"see_vet":true|false}. رتّب الاحتمالات من الأرجح (حتى 4). لا تذكر جرعات أدوية. إن كانت الصورة غير مفيدة قل ذلك في findings.`;
+      const j = aiParseJSON(await aiCall(prompt, aiState.photo));
+      res = { kind: 'health', src: 'ai', findings: String(j.findings || ''), items: (j.possible || []).slice(0, 4).map(p => ({ name: String(p.name || ''), lik: ['high', 'medium', 'low'].includes(p.likelihood) ? p.likelihood : 'low', why: String(p.why || ''), urgent: !!p.urgent, contagious: !!p.contagious, notify: !!p.notifiable, zoonotic: !!p.zoonotic, advice: (p.advice || []).map(String) })) };
+    }
+    aiState.result = res;
+  } catch (e) {
+    toast(e.message === 'KEY' ? 'مفتاح الذكاء الاصطناعي غير صالح' : 'تعذّر الاتصال بالذكاء الاصطناعي، جرّب التحليل بدون إنترنت', 'error');
+  }
+  aiState.busy = false; renderAI();
+}
+const LIK = { high: ['محتمل جداً', 'bg-red-100 text-red-800'], medium: ['محتمل', 'bg-amber-100 text-amber-800'], low: ['ممكن', 'bg-gray-100 text-gray-700'] };
+const monthsText = m => m < 24 ? `${Math.round(m)} شهراً` : `${(m / 12).toFixed(m % 12 ? 1 : 0)} سنة`;
+function renderAI() {
+  const st = aiState, hasKey = !!aiGetKey(), md = st.mode;
+  const tab = (m, l) => `<button onclick="setAIMode('${m}')" class="py-2 rounded-lg text-xs font-extrabold ${md === m ? 'bg-brand-700 text-white' : 'bg-gray-100 text-gray-600'}">${l}</button>`;
+  let h = `<div class="grid grid-cols-2 gap-2">${tab('age', '🦷 تقدير العمر')}${tab('health', '🩺 تشخيص مرض')}</div>
+  <div><label class="lbl">البطاقة (اختياري — للحفظ عليها)</label><select class="inp" onchange="aiSheep(this.value)">${sheepOptions(st.sheepId)}</select></div>
+  <div class="border rounded-xl p-3 bg-gray-50 space-y-2">
+    <div class="font-bold">${md === 'age' ? '📷 صوّر القواطع السفلية (افتح فم الحيوان بلطف)' : '📷 صوّر موضع المشكلة (جلد، عين، فم، حافر، براز...)'}</div>
+    ${st.photo ? `<img src="${st.photo}" class="w-full max-h-52 object-contain rounded-lg bg-black/5" alt="الصورة">` : ''}
+    <div class="grid grid-cols-2 gap-2">
+      <label class="btn bg-brand-700 text-white cursor-pointer text-center">📸 التقاط<input type="file" accept="image/*" capture="environment" class="hidden" onchange="aiPick(event)"></label>
+      <label class="btn bg-gray-200 text-gray-700 cursor-pointer text-center">🖼️ من المعرض<input type="file" accept="image/*" class="hidden" onchange="aiPick(event)"></label>
+    </div></div>`;
+  if (md === 'age') {
+    h += `<div class="space-y-1.5"><div class="font-bold">اختر الوصف الأقرب للأسنان:</div>${TEETH.map(t => `<button onclick="aiTeeth(${t.id})" class="w-full text-right p-2.5 rounded-xl border text-xs ${st.teeth === t.id ? 'border-brand-600 bg-brand-50 font-bold' : 'border-gray-200 bg-white'}">${esc(t.t)}</button>`).join('')}</div>`;
+  } else {
+    h += `<div class="space-y-2"><div class="font-bold">الأعراض الظاهرة:</div>${SYMS.map(g => `<div><div class="text-gray-500 mb-1">${g[0]}</div><div class="flex flex-wrap gap-1.5">${g[1].map(([id, l]) => `<button onclick="aiSym('${id}')" class="chip ${st.syms.has(id) ? 'bg-brand-700 text-white' : 'bg-gray-100 text-gray-700'}">${l}</button>`).join('')}</div></div>`).join('')}
+      <div class="grid grid-cols-3 gap-2"><input type="number" step="0.1" min="35" max="43" class="inp" placeholder="الحرارة °م" value="${esc(st.temp)}" oninput="aiState.temp=this.value"><input class="inp col-span-2" placeholder="وصف إضافي (مدة المرض، عدد المصابين...)" value="${esc(st.text)}" oninput="aiState.text=this.value"></div></div>`;
+  }
+  h += `<div class="grid grid-cols-2 gap-2">
+    <button onclick="aiAnalyzeLocal()" class="btn bg-earth-500 text-white">⚙️ تحليل بدون إنترنت</button>
+    <button onclick="aiAnalyzeAI()" ${st.busy ? 'disabled' : ''} class="btn ${hasKey ? 'bg-purple-700' : 'bg-gray-400'} text-white">${st.busy ? '⏳ جارٍ التحليل...' : '🧠 تحليل بالذكاء الاصطناعي'}</button></div>
+  ${hasKey ? '' : '<p class="text-[11px] text-gray-500">التحليل بالذكاء الاصطناعي (من الصورة) يحتاج مفتاحاً يُضاف من الإعدادات ← الذكاء الاصطناعي، ويحتاج إنترنت.</p>'}`;
+  const r = st.result;
+  if (r) {
+    h += `<div class="border-2 border-brand-200 rounded-xl p-3 space-y-2 bg-white"><div class="flex items-center justify-between"><b class="text-sm">النتيجة</b><span class="chip ${r.src === 'ai' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-700'}">${r.src === 'ai' ? '🧠 ذكاء اصطناعي' : '⚙️ بدون إنترنت'}</span></div>`;
+    if (r.kind === 'age') {
+      if (r.unreadable) h += `<p class="text-amber-800">${esc(r.note)}</p>`;
+      else h += `<div class="text-center py-1"><div class="text-2xl font-extrabold text-brand-800">${monthsText(r.min)} – ${monthsText(r.max)}</div>${r.name ? `<div class="font-bold text-gray-700">${esc(r.name)}</div>` : ''}${r.conf ? `<div class="text-gray-500">الثقة: ${{ low: 'منخفضة', medium: 'متوسطة', high: 'عالية' }[r.conf] || ''}</div>` : ''}</div><p class="text-gray-600">${esc(r.note)}</p>
+        <button onclick="aiApplyAge()" class="btn w-full bg-brand-700 text-white">✅ تطبيق التقدير على البطاقة</button>
+        <p class="text-[11px] text-gray-500">التقدير تقريبي: تتأثر الأسنان بالسلالة والتغذية.</p>`;
+    } else {
+      if (r.findings) h += `<p class="text-gray-700"><b>ما يظهر في الصورة:</b> ${esc(r.findings)}</p>`;
+      if (r.temp >= 40.5) h += `<p class="text-red-700 font-bold">🌡️ الحرارة ${r.temp}°م مرتفعة (الطبيعي 38.5–40°م).</p>`;
+      if (!r.items.length) h += '<p class="text-gray-600">لم يتحدد مرض محتمل بوضوح. راجع البيطري إن استمرت الأعراض.</p>';
+      r.items.forEach((x, i) => {
+        h += `<div class="border rounded-xl p-2.5 space-y-1.5 ${x.urgent ? 'border-red-300 bg-red-50/50' : 'bg-gray-50'}"><div class="flex flex-wrap items-center gap-1.5"><b class="text-sm">${i + 1}. ${esc(x.name)}</b><span class="chip ${LIK[x.lik][1]}">${LIK[x.lik][0]}</span>${x.urgent ? '<span class="chip bg-red-600 text-white">⚠️ عاجل</span>' : ''}${x.contagious ? '<span class="chip bg-orange-100 text-orange-800">معدٍ</span>' : ''}${x.zoonotic ? '<span class="chip bg-purple-100 text-purple-800">ينتقل للإنسان</span>' : ''}${x.notify ? '<span class="chip bg-gray-800 text-white">يُبلَّغ عنه</span>' : ''}</div>
+          <p class="text-gray-600">${esc(x.why)}</p><ul class="list-disc pr-4 space-y-0.5">${x.advice.map(a => `<li>${esc(a)}</li>`).join('')}</ul>
+          <button onclick="aiSaveHealth(${i})" class="btn w-full bg-white border border-brand-300 text-brand-800">💾 تسجيل كتشخيص مبدئي على البطاقة</button></div>`;
+      });
+      h += `<p class="text-[11px] text-red-700 font-bold">⚠️ هذا تشخيص مبدئي للمساعدة فقط وليس بديلاً عن الطبيب البيطري. لا تعطِ أدوية دون استشارته، واتصل به فوراً في الحالات العاجلة.</p>
+      <button onclick="closeModal('aiModal');switchTab('vet');openVets()" class="btn w-full bg-earth-100 text-earth-800 border border-earth-300">📞 الاتصال بالبيطري</button>`;
+    }
+    h += '</div>';
+  }
+  $('aiBody').innerHTML = h;
+}
+function aiTarget() { return db.sheep.find(x => x.id === aiState.sheepId); }
+function aiApplyAge() {
+  const s = aiTarget(), r = aiState.result; if (!r || r.unreadable) return;
+  if (!s) return toast('اختر البطاقة أولاً من القائمة', 'error');
+  const mid = (r.min + r.max) / 2, d = new Date(); d.setDate(d.getDate() - Math.round(mid * 30.4));
+  s.birthDate = localDate(d);
+  s.events.push({ id: uid('ev_'), type: 'note', date: today(), note: `تقدير العمر بالأسنان: ${monthsText(r.min)} – ${monthsText(r.max)} (${r.src === 'ai' ? 'ذكاء اصطناعي' : 'جدول الأسنان'}) — تاريخ الميلاد تقريبي`, value: 0, nextDue: '', done: false });
+  if (!saveDB()) return;
+  renderAll(); toast(`تم تحديث عمر ${s.tag} (تاريخ ميلاد تقريبي)`, 'success');
+}
+function aiSaveHealth(i) {
+  const s = aiTarget(), x = aiState.result && aiState.result.items[i]; if (!x) return;
+  if (!s) return toast('اختر البطاقة أولاً من القائمة', 'error');
+  s.health = 'treating';
+  s.events.push({ id: uid('ev_'), type: 'treatment', date: today(), note: `تشخيص مبدئي (${aiState.result.src === 'ai' ? 'ذكاء اصطناعي' : 'أعراض'}): ${x.name} — بانتظار تأكيد البيطري`, value: 0, nextDue: '', done: false });
+  if (!saveDB()) return;
+  renderAll(); toast(`تم التسجيل على ${s.tag} وتحويل حالتها إلى «تحت العلاج»`, 'success');
+}
+function saveAIKey() {
+  const v = $('setAiKey').value.trim();
+  try { if (v) localStorage.setItem(AI_KEY_STORE, v); else localStorage.removeItem(AI_KEY_STORE); } catch (_) {}
+  $('setAiKey').value = ''; $('aiKeyState').textContent = aiGetKey() ? '✅ المفتاح محفوظ على هذا الجهاز' : 'لا يوجد مفتاح';
+  toast(v ? 'تم حفظ المفتاح' : 'تم حذف المفتاح', 'success');
 }
 
 /* =====================================================================
