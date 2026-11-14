@@ -75,7 +75,34 @@
 
 <div id="toastBox" class="fixed top-16 left-1/2 -translate-x-1/2 z-[70] w-11/12 max-w-md pointer-events-none flex flex-col gap-2" aria-live="polite"></div>
 
+<div id="licenseOverlay" class="fixed inset-0 z-[90] bg-brand-900/95 items-center justify-center p-4 overflow-y-auto" style="display:none" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-md p-5 shadow-xl my-auto space-y-3 relative">
+    <button id="licClose" onclick="closeLicenseUI()" aria-label="إغلاق" class="hidden absolute top-3 left-3 px-2 py-1 rounded hover:bg-gray-100 font-bold text-gray-500">✕</button>
+    <div class="text-center text-4xl">🔑</div>
+    <h3 id="licTitle" class="text-center font-extrabold text-lg text-brand-800">تفعيل التطبيق</h3>
+    <div id="licChecking" class="text-center text-sm text-gray-500">جارٍ التحقق...</div>
+    <div id="licBody" class="hidden space-y-3 text-sm">
+      <p id="licMsg" class="text-gray-600 text-center"></p>
+      <div class="bg-gray-50 border rounded-xl p-3 text-center">
+        <div class="text-xs text-gray-500 mb-1">رقم جهازك</div>
+        <div id="licId" class="font-mono font-extrabold text-2xl tracking-widest text-gray-800" dir="ltr"></div>
+        <button onclick="copyDeviceId()" class="btn bg-gray-200 text-gray-700 mt-2 text-xs">📋 نسخ الرقم</button>
+        <span id="licCopyHint" class="text-xs text-green-700 mr-2"></span>
+      </div>
+      <button onclick="requestActivation()" class="btn w-full bg-green-600 text-white">💬 إرسال طلب التفعيل عبر واتساب</button>
+      <div>
+        <label class="lbl">كود التفعيل</label>
+        <textarea id="licCode" rows="3" dir="ltr" class="inp font-mono text-xs" placeholder="الصق الكود هنا"></textarea>
+        <p id="licErr" class="hidden text-red-600 font-bold text-xs mt-1"></p>
+      </div>
+      <button onclick="submitActivation()" class="btn w-full bg-brand-700 text-white">✅ تفعيل</button>
+      <button id="licBackup" onclick="exportBackup()" class="hidden btn w-full bg-gray-100 text-gray-700 text-xs">⬇️ تنزيل نسخة احتياطية من بياناتك (بياناتك محفوظة)</button>
+    </div>
+  </div>
+</div>
+
 <main class="max-w-md mx-auto px-3 pt-4">
+  <div id="licBar" class="hidden" onclick="openActivation()"></div>
 
   <!-- ===== الرئيسية ===== -->
   <section id="tab-home" class="tab-content space-y-3.5">
@@ -317,6 +344,12 @@
         </div>
         <div><label class="lbl">أجرة الراعي الافتراضية (دج/يوم)</label><input id="setWage" type="number" min="0" class="inp"></div>
         <button onclick="saveSettings()" class="btn w-full bg-brand-700 text-white">حفظ الإعدادات</button>
+      </div>
+      <div class="space-y-2 border-t pt-3">
+        <h4 class="font-bold text-sm text-gray-800">🔑 الترخيص</h4>
+        <p id="licInfo" class="font-bold text-gray-700"></p>
+        <p class="text-gray-500">رقم الجهاز: <span id="licDeviceInfo" class="font-mono font-bold" dir="ltr"></span></p>
+        <button onclick="closeModal('settingsModal');openActivation()" class="btn w-full bg-brand-700 text-white">إدخال كود التفعيل / التجديد</button>
       </div>
       <div class="space-y-2 border-t pt-3">
         <h4 class="font-bold text-sm text-gray-800">💾 النسخ الاحتياطي</h4>
@@ -1967,7 +2000,7 @@ async function exportBackup() {
   const photos = {};
   for (const s of db.sheep) if (s.photo) { const d = await Photos.get(s.photo); if (d) photos[s.photo] = d; }
   download(new Blob([JSON.stringify({ app: 'mawashi-dz', v: 4, exportedAt: new Date().toISOString(), db, photos })], { type: 'application/json' }), `نسخة_مواشي_الجزائر_${today()}.json`);
-  db.settings.lastBackup = today(); saveDB(); openSettings(); toast('تم تنزيل النسخة الاحتياطية', 'success');
+  db.settings.lastBackup = today(); saveDB(); if (!$('settingsModal').classList.contains('hidden')) openSettings(); toast('تم تنزيل النسخة الاحتياطية', 'success');
 }
 function importBackup(e) {
   const f = e.target.files[0]; if (!f) return;
@@ -2037,11 +2070,193 @@ function resetAll() {
 }
 
 /* =====================================================================
+   الترخيص: فترة تجريبية (3 أيام) ثم تفعيل بكود موقّع من أداة المالك
+   - التطبيق يحمل المفتاح العام فقط؛ لا يمكن إنشاء كود صالح دون المفتاح الخاص.
+   - الكود مرتبط برقم الجهاز، وقد يكون محدد المدة أو دائماً.
+   ===================================================================== */
+const LIC = {
+  trialDays: 3,
+  ownerPhone: '',   // ضع رقمك هنا (مثال: '0550123456') ليصلك طلب التفعيل مباشرة على واتساب
+  pub: { kty: 'EC', crv: 'P-256', x: 'LO0D0IzuoIwXlTES2x8mR6cSRHVbKzD089my8z4JYo4', y: 'GSSow6lO8OltSW0dMbA-CvKt6AWLEqBGeGtqmiE3OQg' },
+  KEY: 'mw_meta_v1', ALPHA: 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789',
+  meta: null, status: null, pubKey: null, closable: false
+};
+const b64uToBytes = s => { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
+const normId = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const fmtId = id => id.slice(0, 4) + '-' + id.slice(4);
+function genId() {
+  const r = new Uint8Array(8); crypto.getRandomValues(r);
+  return [...r].map(b => LIC.ALPHA[b % LIC.ALPHA.length]).join('');
+}
+// ---- تخزين مكرّر (localStorage + cookie + IndexedDB) حتى لا تُصفَّر الفترة التجريبية بمسح واحد ----
+const metaPath = () => location.pathname.replace(/[^/]*$/, '') || '/';
+function metaFromLS() { try { return JSON.parse(localStorage.getItem(LIC.KEY)); } catch (_) { return null; } }
+function metaFromCookie() {
+  try { const m = String(document.cookie || '').match(/(?:^|;\s*)mw_meta=([^;]+)/); return m ? JSON.parse(decodeURIComponent(m[1])) : null; } catch (_) { return null; }
+}
+function metaFromIDB() {
+  return new Promise(res => {
+    try {
+      const r = indexedDB.open('mawashi_meta', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('k');
+      r.onsuccess = () => { try { const g = r.result.transaction('k').objectStore('k').get('meta'); g.onsuccess = () => res(g.result || null); g.onerror = () => res(null); } catch (_) { res(null); } };
+      r.onerror = () => res(null);
+    } catch (_) { res(null); }
+  });
+}
+function saveMeta(m) {
+  const j = JSON.stringify(m);
+  try { localStorage.setItem(LIC.KEY, j); } catch (_) {}
+  try { document.cookie = `mw_meta=${encodeURIComponent(j)}; max-age=31536000; path=${metaPath()}; SameSite=Lax`; } catch (_) {}
+  try {
+    const r = indexedDB.open('mawashi_meta', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('k');
+    r.onsuccess = () => { try { r.result.transaction('k', 'readwrite').objectStore('k').put(m, 'meta'); } catch (_) {} };
+  } catch (_) {}
+}
+async function loadMeta() {
+  const list = [metaFromLS(), metaFromCookie(), await metaFromIDB()].filter(m => m && m.id && m.t0);
+  let m;
+  if (!list.length) { const n = Date.now(); m = { id: genId(), t0: n, seen: n, code: '' }; }
+  else m = { id: list[0].id, t0: Math.min(...list.map(x => x.t0)), seen: Math.max(...list.map(x => x.seen || 0)), code: (list.find(x => x.code) || {}).code || '' };
+  saveMeta(m); return m;
+}
+// الوقت الفعلي: لا يرجع للخلف حتى لو غيّر المستخدم ساعة الجهاز
+function effectiveNow() {
+  const n = Date.now();
+  if (n < LIC.meta.seen - 300000) return LIC.meta.seen;
+  if (n - LIC.meta.seen > 60000) { LIC.meta.seen = n; saveMeta(LIC.meta); }
+  return n;
+}
+function extractCode(raw) {
+  let c = String(raw || '').trim();
+  const i = c.indexOf('activate=');
+  if (i !== -1) c = c.slice(i + 9);
+  return c.replace(/\s+/g, '');
+}
+async function verifyCode(raw) {
+  const bad = reason => ({ ok: false, reason });
+  const code = extractCode(raw), parts = code.split('.');
+  if (parts.length !== 2) return bad('صيغة الكود غير صحيحة');
+  let text, sig;
+  try { text = new TextDecoder().decode(b64uToBytes(parts[0])); sig = b64uToBytes(parts[1]); } catch (_) { return bad('صيغة الكود غير صحيحة'); }
+  const f = text.split('|');
+  if (f.length !== 4 || f[0] !== 'v1') return bad('صيغة الكود غير صحيحة');
+  if (!window.crypto || !crypto.subtle) return bad('المتصفح لا يدعم التحقق. افتح التطبيق عبر رابط https.');
+  try {
+    if (!LIC.pubKey) LIC.pubKey = await crypto.subtle.importKey('jwk', LIC.pub, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+    const ok = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, LIC.pubKey, sig, new TextEncoder().encode(text));
+    if (!ok) return bad('الكود غير صالح');
+  } catch (_) { return bad('تعذّر التحقق من الكود'); }
+  if (f[1] !== LIC.meta.id) return bad('هذا الكود مخصص لجهاز آخر');
+  if (f[2] !== 'L' && f[2] < localDate(new Date(effectiveNow()))) return { ok: false, expired: true, exp: f[2], reason: `انتهت صلاحية هذا الكود بتاريخ ${d8(f[2])}` };
+  return { ok: true, exp: f[2], issued: f[3], code };
+}
+async function computeStatus() {
+  const now = effectiveNow(), id = LIC.meta.id;
+  let expiredLic = null;
+  if (LIC.meta.code) {
+    const v = await verifyCode(LIC.meta.code);
+    if (v.ok) {
+      if (v.exp === 'L') return { state: 'licensed', lifetime: true, id };
+      const left = daysBetween(localDate(new Date(now)), v.exp);
+      return { state: 'licensed', exp: v.exp, daysLeft: left, id };
+    }
+    if (v.expired) expiredLic = v.exp;
+  }
+  const end = LIC.meta.t0 + LIC.trialDays * 86400000;
+  if (now < end) {
+    const ms = end - now;
+    return { state: 'trial', daysLeft: Math.floor(ms / 86400000), hoursLeft: Math.floor(ms % 86400000 / 3600000), id };
+  }
+  return { state: 'expired', expiredLic, id };
+}
+function licRemainText(st) {
+  if (st.daysLeft >= 1) return `${st.daysLeft} ${st.daysLeft <= 10 ? 'أيام' : 'يوماً'}`;
+  return `${st.hoursLeft} ساعة`;
+}
+function setLicErr(msg) { const e = $('licErr'); e.textContent = msg || ''; e.classList.toggle('hidden', !msg); }
+function showLicenseUI(closable) {
+  const st = LIC.status || {}, ex = st.state === 'expired';
+  LIC.closable = !!closable && !ex;
+  $('licTitle').textContent = ex ? (st.expiredLic ? 'انتهى اشتراكك' : 'انتهت الفترة التجريبية') : 'تفعيل التطبيق';
+  $('licMsg').textContent = ex
+    ? (st.expiredLic ? `انتهت صلاحية الترخيص بتاريخ ${d8(st.expiredLic)}. أرسل رقم جهازك لتجديد الاشتراك.` : `انتهت فترة التجربة (${LIC.trialDays} أيام). لمتابعة الاستعمال أرسل رقم جهازك لتحصل على كود التفعيل.`)
+    : 'أرسل رقم جهازك إلى المطوّر ثم الصق كود التفعيل الذي يصلك.';
+  $('licId').textContent = fmtId(LIC.meta.id);
+  $('licClose').classList.toggle('hidden', !LIC.closable);
+  $('licBackup').classList.toggle('hidden', !ex);
+  $('licChecking').classList.add('hidden'); $('licBody').classList.remove('hidden');
+  setLicErr(''); $('licenseOverlay').style.display='flex'; $('licenseOverlay').classList.remove('hidden');
+}
+function closeLicenseUI() { if (LIC.status && LIC.status.state === 'expired') return; $('licenseOverlay').style.display='none'; }
+function openActivation() { showLicenseUI(true); }
+function copyDeviceId() {
+  const id = fmtId(LIC.meta.id);
+  if (navigator.clipboard) navigator.clipboard.writeText(id).then(() => { $('licCopyHint').textContent = 'تم النسخ ✓'; setTimeout(() => $('licCopyHint').textContent = '', 2000); }).catch(() => {});
+}
+function requestActivation() {
+  const msg = `السلام عليكم، أريد تفعيل تطبيق مواشي الجزائر.\nرقم جهازي: ${fmtId(LIC.meta.id)}`;
+  window.open(`https://wa.me/${waNumber(LIC.ownerPhone)}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+async function activateCode(raw) {
+  const v = await verifyCode(raw);
+  if (!v.ok) { setLicErr(v.reason); return false; }
+  LIC.meta.code = v.code; saveMeta(LIC.meta); setLicErr('');
+  await enforceLicense();
+  $('licenseOverlay').style.display='none';
+  toast(v.exp === 'L' ? '✅ تم التفعيل بنجاح (ترخيص دائم)' : `✅ تم التفعيل حتى ${d8(v.exp)}`, 'success');
+  if ($('settingsModal') && !$('settingsModal').classList.contains('hidden')) openSettings();
+  return true;
+}
+function submitActivation() {
+  const v = $('licCode').value;
+  if (!extractCode(v)) return setLicErr('الصق كود التفعيل أولاً');
+  activateCode(v).then(ok => { if (ok) $('licCode').value = ''; });
+}
+async function enforceLicense() {
+  LIC.status = await computeStatus();
+  const st = LIC.status, bar = $('licBar');
+  if (st.state === 'expired') { Cam.stopAll(); showLicenseUI(false); }
+  else if (!LIC.closable) $('licenseOverlay').style.display='none';
+  let txt = '', cls = '';
+  if (st.state === 'trial') { txt = `🕒 فترة تجريبية — المتبقي ${licRemainText(st)} • اضغط للتفعيل`; cls = 'bg-amber-100 text-amber-900 border-amber-300'; }
+  else if (st.state === 'licensed' && !st.lifetime && st.daysLeft <= 7) { txt = `🔑 ينتهي ترخيصك ${st.daysLeft <= 0 ? 'اليوم' : `بعد ${st.daysLeft} يوم`} — اضغط للتجديد`; cls = 'bg-blue-100 text-blue-900 border-blue-300'; }
+  bar.className = txt ? `mb-3 text-center text-xs font-bold border rounded-xl px-3 py-2 cursor-pointer ${cls}` : 'hidden';
+  bar.textContent = txt;
+  const info = $('licInfo');
+  if (info) info.innerHTML = st.state === 'licensed'
+    ? `✅ مُفعَّل — ${st.lifetime ? 'ترخيص دائم' : `ينتهي ${d8(st.exp)}`}`
+    : st.state === 'trial' ? `🕒 فترة تجريبية — المتبقي ${licRemainText(st)}` : '⛔ انتهت الفترة التجريبية';
+  if ($('licDeviceInfo')) $('licDeviceInfo').textContent = fmtId(LIC.meta.id);
+  return st;
+}
+async function initLicense() {
+  try {
+    LIC.meta = await loadMeta();
+    if (String(location.hash).startsWith('#activate=')) {
+      const c = location.hash.slice(10);
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+      await enforceLicense();
+      await activateCode(c);
+    } else await enforceLicense();
+    if (LIC.status.state !== 'expired') $('licenseOverlay').style.display='none';
+    setInterval(enforceLicense, 60000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) enforceLicense(); });
+  } catch (e) {
+    console.error('license init failed', e);
+    // فشل غير متوقع في التخزين: نمنح الاستعمال ولا نعطّل المستخدم بخطأ تقني
+    $('licenseOverlay').style.display='none';
+  }
+}
+
+/* =====================================================================
    التشغيل
    ===================================================================== */
 setCountMode('crowd');
 switchTab('home');
 renderAll();
+initLicense();
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

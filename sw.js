@@ -1,5 +1,5 @@
 // Service Worker — يسمح بتشغيل التطبيق دون إنترنت بعد أول فتح
-const CACHE = 'mawashi-v4';
+const CACHE = 'mawashi-v5';
 const CORE = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
