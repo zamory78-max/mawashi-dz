@@ -2356,19 +2356,27 @@ function setupNativePhotoPicker() {
   const C = window.Capacitor;
   if (!(C && C.isNativePlatform && C.isNativePlatform() && C.registerPlugin)) return;
   const Cam2 = C.registerPlugin('Camera');
+  let bypass = false;
   document.addEventListener('click', async ev => {
     const el = ev.target;
-    if (!(el && el.tagName === 'INPUT' && el.type === 'file' && /image/.test(el.accept || ''))) return;
+    if (bypass || !(el && el.tagName === 'INPUT' && el.type === 'file' && /image/.test(el.accept || ''))) return;
     ev.preventDefault(); ev.stopPropagation();
+    const cap = el.hasAttribute('capture');
+    let step = 'camera';
     try {
-      const r = await Cam2.getPhoto({ quality: 85, width: 1280, resultType: 'dataUrl', correctOrientation: true, source: el.hasAttribute('capture') ? 'CAMERA' : 'PHOTOS', saveToGallery: el.hasAttribute('capture') });
-      if (!r || !r.dataUrl) return;
+      const r = await Cam2.getPhoto({ quality: 85, width: 1280, resultType: 'dataUrl', correctOrientation: true, source: cap ? 'CAMERA' : 'PHOTOS', saveToGallery: false });
+      if (!r || !r.dataUrl) throw new Error('empty result');
+      step = 'convert';
       const blob = await (await fetch(r.dataUrl)).blob();
       const file = new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' });
-      if (typeof el.onchange === 'function') el.onchange({ target: { files: [file], value: '' }, preventDefault() {} });
+      step = 'attach';
+      if (typeof el.onchange !== 'function') throw new Error('no handler');
+      el.onchange({ target: { files: [file], value: '' }, preventDefault() {} });
     } catch (e) {
-      const m = String((e && e.message) || e);
-      if (!/cancel/i.test(m)) toast('تعذّر فتح الكاميرا/المعرض. تحقق من إذن الكاميرا في إعدادات الهاتف', 'error');
+      const m = String((e && (e.message || e.errorMessage)) || e);
+      if (/cancel|dismiss/i.test(m)) return;
+      toast(`تعذّر (${step}): ${m.slice(0, 80)}`, 'error');
+      if (step === 'camera') { bypass = true; setTimeout(() => { el.click(); bypass = false; }, 50); }
     }
   }, true);
 }
