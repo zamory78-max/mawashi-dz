@@ -2351,6 +2351,27 @@ function saveAIKey() {
   toast(v ? 'تم حفظ المفتاح' : 'تم حذف المفتاح', 'success');
 }
 
+/* داخل تطبيق الأندرويد: نستعمل إضافة الكاميرا الأصلية بدل نافذة اختيار الملفات في WebView (لأنها قد تفشل في إرجاع الصورة) */
+function setupNativePhotoPicker() {
+  const C = window.Capacitor;
+  if (!(C && C.isNativePlatform && C.isNativePlatform() && C.registerPlugin)) return;
+  const Cam2 = C.registerPlugin('Camera');
+  document.addEventListener('click', async ev => {
+    const el = ev.target;
+    if (!(el && el.tagName === 'INPUT' && el.type === 'file' && /image/.test(el.accept || ''))) return;
+    ev.preventDefault(); ev.stopPropagation();
+    try {
+      const r = await Cam2.getPhoto({ quality: 85, width: 1280, resultType: 'dataUrl', correctOrientation: true, source: el.hasAttribute('capture') ? 'CAMERA' : 'PHOTOS', saveToGallery: el.hasAttribute('capture') });
+      if (!r || !r.dataUrl) return;
+      const blob = await (await fetch(r.dataUrl)).blob();
+      const file = new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' });
+      if (typeof el.onchange === 'function') el.onchange({ target: { files: [file], value: '' }, preventDefault() {} });
+    } catch (e) {
+      const m = String((e && e.message) || e);
+      if (!/cancel/i.test(m)) toast('تعذّر فتح الكاميرا/المعرض. تحقق من إذن الكاميرا في إعدادات الهاتف', 'error');
+    }
+  }, true);
+}
 /* =====================================================================
    الترخيص: فترة تجريبية (3 أيام) ثم تفعيل بكود موقّع من أداة المالك
    - التطبيق يحمل المفتاح العام فقط؛ لا يمكن إنشاء كود صالح دون المفتاح الخاص.
@@ -2538,6 +2559,7 @@ async function initLicense() {
 setCountMode('crowd');
 switchTab('home');
 renderAll();
+setupNativePhotoPicker();
 initLicense();
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
