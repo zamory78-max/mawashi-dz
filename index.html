@@ -2260,10 +2260,26 @@ function aiHumanPrompt() {
   const sy = [...aiState.syms].map(x => SYM_LABEL[x]).join('، ');
   return `أنت طبيب بيطري خبير في أمراض الأغنام بالجزائر. حلّل الصورة وقل ما المرض المحتمل (حتى 3 احتمالات مرتبة)، وهل الحالة عاجلة أو معدية أو تنتقل للإنسان، وما الإسعافات العملية بدون ذكر جرعات أدوية، ومتى أتصل بالبيطري. بالعربية.${sy ? ` الأعراض: ${sy}.` : ''}${aiState.temp ? ` الحرارة: ${aiState.temp}°م.` : ''}${aiState.text ? ` ${aiState.text}` : ''}`;
 }
+async function aiCopyPrompt() {
+  const text = aiHumanPrompt();
+  try { await navigator.clipboard.writeText(text); toast('تم نسخ السؤال — الصقه في Gemini أو Google', 'success'); return true; }
+  catch (_) {
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('تم نسخ السؤال — الصقه في Gemini أو Google', 'success'); ta.remove(); return true; } catch (_) { ta.remove(); }
+    toast('تعذّر النسخ تلقائياً', 'error'); return false;
+  }
+}
+function aiOpenExternal(which) {
+  aiCopyPrompt();
+  const url = which === 'lens' ? 'https://lens.google.com/' : 'https://gemini.google.com/app';
+  setTimeout(() => { try { window.open(url, '_blank'); } catch (_) { location.href = url; } }, 400);
+}
 async function aiShareExternal() {
+  toast('جارٍ تجهيز المشاركة...', 'info');
   const text = aiHumanPrompt();
   try { if (navigator.clipboard) await navigator.clipboard.writeText(text); } catch (_) {}
-  if (!aiState.photo) return toast('التقط صورة أولاً. تم نسخ السؤال إن أردت لصقه', 'error');
+  if (!aiState.photo) return toast('التقط صورة أولاً', 'error');
+  let why = '';
   try {
     const blob = await (await fetch(aiState.photo)).blob();
     const file = new File([blob], 'sheep.jpg', { type: 'image/jpeg' });
@@ -2271,11 +2287,13 @@ async function aiShareExternal() {
     const C = window.Capacitor;
     if (C && C.registerPlugin) {
       const FS = C.registerPlugin('Filesystem'), SH = C.registerPlugin('Share');
-      const w = await FS.writeFile({ path: 'sheep-scan.jpg', data: aiState.photo.split(',')[1], directory: 'CACHE' });
-      await SH.share({ text, files: [w.uri], dialogTitle: 'اختر Gemini أو Google' }); return;
+      const w = await Promise.race([FS.writeFile({ path: 'sheep-scan.jpg', data: aiState.photo.split(',')[1], directory: 'CACHE' }), new Promise((_, rj) => setTimeout(() => rj(new Error('timeout writing file')), 8000))]);
+      await Promise.race([SH.share({ text, files: [w.uri], dialogTitle: 'اختر Gemini أو Google' }), new Promise((_, rj) => setTimeout(() => rj(new Error('timeout share')), 15000))]);
+      return;
     }
-    toast('تم نسخ السؤال. افتح Gemini أو Google Lens وأرفق الصورة ثم الصق السؤال', 'success');
-  } catch (e) { if (!(e && e.name === 'AbortError')) toast('تم نسخ السؤال. افتح Gemini أو Google وأرفق الصورة يدوياً', 'info'); }
+    why = 'المشاركة المباشرة غير متاحة هنا';
+  } catch (e) { if (e && e.name === 'AbortError') return; why = String((e && (e.message || e.errorMessage)) || e).slice(0, 70); }
+  toast(`تعذّرت المشاركة المباشرة (${why}). استعمل الأزرار التالية: افتح Gemini وأرفق الصورة من المعرض`, 'error');
 }
 const LIK = { high: ['محتمل جداً', 'bg-red-100 text-red-800'], medium: ['محتمل', 'bg-amber-100 text-amber-800'], low: ['ممكن', 'bg-gray-100 text-gray-700'] };
 const monthsText = m => m < 24 ? `${Math.round(m)} شهراً` : `${(m / 12).toFixed(m % 12 ? 1 : 0)} سنة`;
@@ -2301,6 +2319,8 @@ function renderAI() {
     <button onclick="aiAnalyzeLocal()" class="btn bg-earth-500 text-white">⚙️ تحليل بدون إنترنت</button>
     <button onclick="aiAnalyzeAI()" ${st.busy ? 'disabled' : ''} class="btn ${hasKey ? 'bg-purple-700' : 'bg-gray-400'} text-white">${st.busy ? '⏳ جارٍ التحليل...' : '🧠 تحليل بالذكاء الاصطناعي'}</button></div>
   <button onclick="aiShareExternal()" class="btn w-full bg-blue-600 text-white">📤 إرسال الصورة إلى Gemini / Google (على هاتفك)</button>
+  <div class="grid grid-cols-3 gap-2"><button onclick="aiCopyPrompt()" class="btn bg-gray-100 text-gray-700 text-xs">📋 نسخ السؤال</button><button onclick="aiOpenExternal('gemini')" class="btn bg-gray-100 text-gray-700 text-xs">✨ فتح Gemini</button><button onclick="aiOpenExternal('lens')" class="btn bg-gray-100 text-gray-700 text-xs">🔎 فتح Google</button></div>
+  <p class="text-[11px] text-gray-500">إن لم تظهر قائمة المشاركة: افتح Gemini بالزر، ثم أرفق الصورة من معرض الهاتف (تُحفظ فيه عند الالتقاط بالكاميرا) والصق السؤال.</p>
   ${hasKey ? '' : '<p class="text-[11px] text-gray-500">التحليل بالذكاء الاصطناعي (من الصورة) يحتاج مفتاحاً يُضاف من الإعدادات ← الذكاء الاصطناعي، ويحتاج إنترنت.</p>'}`;
   const r = st.result;
   if (r) {
@@ -2364,7 +2384,10 @@ function setupNativePhotoPicker() {
     const cap = el.hasAttribute('capture');
     let step = 'camera';
     try {
-      const r = await Cam2.getPhoto({ quality: 85, width: 1280, resultType: 'dataUrl', correctOrientation: true, source: cap ? 'CAMERA' : 'PHOTOS', saveToGallery: false });
+      const opts = { quality: 85, width: 1280, resultType: 'dataUrl', correctOrientation: true, source: cap ? 'CAMERA' : 'PHOTOS' };
+      let r;
+      try { r = await Cam2.getPhoto({ ...opts, saveToGallery: cap }); }
+      catch (e1) { if (/cancel|dismiss/i.test(String((e1 && e1.message) || e1))) throw e1; r = await Cam2.getPhoto({ ...opts, saveToGallery: false }); }
       if (!r || !r.dataUrl) throw new Error('empty result');
       step = 'convert';
       const blob = await (await fetch(r.dataUrl)).blob();
