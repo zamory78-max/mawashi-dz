@@ -2399,6 +2399,60 @@ function isNativeApp() {
   try { if (typeof C.isNativePlatform === 'function') return !!C.isNativePlatform(); if (typeof C.getPlatform === 'function') return C.getPlatform() !== 'web'; } catch (_) {}
   return false;
 }
+/* استعادة السياق: عند فتح الكاميرا قد يغلق أندرويد التطبيق لضيق الذاكرة فيعود للرئيسية. نحفظ الحالة ونستعيدها مع الصورة */
+const RESUME_KEY = 'mw_resume';
+function saveResumeCtx() {
+  try {
+    const open = id => $(id) && $(id).classList.contains('flex');
+    let ctx = null;
+    if (open('aiModal')) ctx = { k: 'ai', st: { mode: aiState.mode, sheepId: aiState.sheepId, syms: [...aiState.syms], temp: aiState.temp, text: aiState.text, teeth: aiState.teeth } };
+    else if (open('sheepModal')) {
+      const f = {}; document.querySelectorAll('#sheepModal input, #sheepModal select, #sheepModal textarea').forEach(e => { if (e.id && e.type !== 'file') f[e.id] = e.value; });
+      ctx = { k: 'sheep', id: $('sheepId').value, f };
+    }
+    if (ctx) { ctx.t = Date.now(); localStorage.setItem(RESUME_KEY, JSON.stringify(ctx)); }
+  } catch (_) {}
+}
+const clearResumeCtx = () => { try { localStorage.removeItem(RESUME_KEY); } catch (_) {} };
+async function applyRestoredPhoto(dataUrl, saved) {
+  let ctx = null; try { ctx = JSON.parse(localStorage.getItem(RESUME_KEY) || 'null'); } catch (_) {}
+  if (!ctx || Date.now() - ctx.t > 10 * 60000) return;
+  if (ctx.k === 'ai') {
+    if (!$('aiModal').classList.contains('flex')) { Object.assign(aiState, { mode: ctx.st.mode, sheepId: ctx.st.sheepId, syms: new Set(ctx.st.syms), temp: ctx.st.temp, text: ctx.st.text, teeth: ctx.st.teeth, result: null, busy: false }); openModal('aiModal'); }
+    aiState.photo = dataUrl; aiState.saved = !!saved; renderAI();
+  } else if (ctx.k === 'sheep') {
+    if (!$('sheepModal').classList.contains('flex')) await restoreSheepCtx(ctx);
+    tempPhoto = dataUrl; photoRemoved = false; showPreview(dataUrl);
+  }
+  clearResumeCtx(); toast('تمت استعادة الصورة بعد عودة التطبيق', 'success');
+}
+async function restoreSheepCtx(ctx) {
+  await openSheepModal(ctx.id || null);
+  Object.entries(ctx.f || {}).forEach(([id, v]) => { const e = $(id); if (e && e.type !== 'file') e.value = v; });
+}
+function restoreContextOnBoot() {
+  let ctx = null; try { ctx = JSON.parse(localStorage.getItem(RESUME_KEY) || 'null'); } catch (_) {}
+  if (!ctx) return;
+  if (Date.now() - ctx.t > 10 * 60000) return clearResumeCtx();
+  // نعيد المستخدم إلى نفس الشاشة فوراً
+  if (ctx.k === 'ai') { Object.assign(aiState, { mode: ctx.st.mode, sheepId: ctx.st.sheepId, syms: new Set(ctx.st.syms), temp: ctx.st.temp, text: ctx.st.text, teeth: ctx.st.teeth, photo: null, result: null, busy: false }); renderAI(); openModal('aiModal'); }
+  else if (ctx.k === 'sheep') restoreSheepCtx(ctx);
+  // إن لم تصل الصورة المستعادة خلال ثوانٍ نخبر المستخدم
+  setTimeout(() => { let c2 = null; try { c2 = JSON.parse(localStorage.getItem(RESUME_KEY) || 'null'); } catch (_) {} if (c2 && c2.t === ctx.t) { clearResumeCtx(); toast('أُغلق التطبيق أثناء الكاميرا. أعد الالتقاط من فضلك', 'info'); } }, 6000);
+}
+function setupRestoredResultListener() {
+  const App = capPlugin('App'); if (!App || !App.addListener) return;
+  try {
+    App.addListener('appRestoredResult', ev => {
+      try {
+        if (ev && ev.pluginId === 'Camera' && ev.methodName === 'getPhoto' && ev.success && ev.data) {
+          const d = ev.data; const url = d.dataUrl || (d.base64String ? `data:image/${d.format || 'jpeg'};base64,${d.base64String}` : '');
+          if (url) applyRestoredPhoto(url, d.saved === true);
+        } else if (ev && ev.pluginId === 'Camera') { clearResumeCtx(); }
+      } catch (_) {}
+    });
+  } catch (_) {}
+}
 function setupNativePhotoPicker() {
   if (!isNativeApp()) return;
   const Cam2 = capPlugin('Camera'); if (!Cam2) return;
@@ -2409,6 +2463,7 @@ function setupNativePhotoPicker() {
     ev.preventDefault(); ev.stopPropagation();
     const cap = el.hasAttribute('capture');
     let step = 'camera';
+    saveResumeCtx();
     try {
       const opts = { quality: 85, width: 1280, resultType: 'dataUrl', correctOrientation: true, source: cap ? 'CAMERA' : 'PHOTOS' };
       let r;
@@ -2416,6 +2471,7 @@ function setupNativePhotoPicker() {
       catch (e1) { if (/cancel|dismiss/i.test(String((e1 && e1.message) || e1))) throw e1; r = await Cam2.getPhoto({ ...opts, saveToGallery: false }); }
       if (!r || !r.dataUrl) throw new Error('empty result');
       window.__nativeSaved = r.saved === true;
+      clearResumeCtx();
       step = 'convert';
       const blob = await (await fetch(r.dataUrl)).blob();
       const file = new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' });
@@ -2424,7 +2480,7 @@ function setupNativePhotoPicker() {
       el.onchange({ target: { files: [file], value: '' }, preventDefault() {} });
     } catch (e) {
       const m = String((e && (e.message || e.errorMessage)) || e);
-      if (/cancel|dismiss/i.test(m)) return;
+      if (/cancel|dismiss/i.test(m)) { clearResumeCtx(); return; }
       toast(`تعذّر (${step}): ${m.slice(0, 80)}`, 'error');
       if (step === 'camera') { bypass = true; setTimeout(() => { el.click(); bypass = false; }, 50); }
     }
@@ -2617,7 +2673,9 @@ async function initLicense() {
 setCountMode('crowd');
 switchTab('home');
 renderAll();
+setupRestoredResultListener();
 setupNativePhotoPicker();
+restoreContextOnBoot();
 initLicense();
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
