@@ -1,0 +1,2051 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#065f46">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<title>مواشي الجزائر | إدارة القطيع والعدّ الذكي</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      fontFamily: { sans: ['Cairo', 'sans-serif'] },
+      colors: {
+        brand: { 50:'#ecfdf5',100:'#d1fae5',200:'#a7f3d0',300:'#6ee7b7',400:'#34d399',500:'#10b981',600:'#059669',700:'#047857',800:'#065f46',900:'#064e3b' },
+        earth: { 50:'#fffbeb',100:'#fef3c7',200:'#fde68a',300:'#fcd34d',400:'#fbbf24',500:'#d97706',600:'#b45309',700:'#92400e',800:'#78350f',900:'#451a03' }
+      }
+    } }
+  };
+</script>
+<style type="text/tailwindcss">
+  @layer components {
+    .inp { @apply w-full p-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:border-brand-600; }
+    .lbl { @apply block text-xs font-bold text-gray-700 mb-1; }
+    .btn { @apply px-3 py-2.5 rounded-xl font-bold text-xs active:scale-95 transition text-center; }
+    .card { @apply bg-white rounded-2xl shadow-sm border border-gray-100; }
+    .chip { @apply text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap; }
+    .seg { @apply px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600; }
+    .seg.on { @apply bg-brand-700 text-white; }
+  }
+</style>
+<style>
+  body { font-family: 'Cairo','Segoe UI',Tahoma,sans-serif; background:#f3f4f6; color:#1f2937; padding-bottom: calc(80px + env(safe-area-inset-bottom)); -webkit-tap-highlight-color: transparent; }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; animation: fadeIn .2s ease-in-out; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(4px);} to { opacity:1; transform:none;} }
+  .no-scrollbar::-webkit-scrollbar { display:none; }
+  .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+  .radio-pill input { position:absolute; opacity:0; pointer-events:none; }
+  .radio-pill input:focus-visible + div { outline:2px solid #059669; outline-offset:1px; }
+  .radio-pill input:checked + div { color:#fff; border-color:transparent; }
+  .rp-green input:checked + div { background:#059669; }
+  .rp-red input:checked + div { background:#dc2626; }
+  .rp-blue input:checked + div { background:#2563eb; }
+  .rp-amber input:checked + div { background:#d97706; }
+  .rp-dark input:checked + div { background:#047857; }
+  details > summary { cursor:pointer; list-style:none; }
+  details > summary::-webkit-details-marker { display:none; }
+</style>
+</head>
+<body class="antialiased">
+
+<!-- الرأس -->
+<header class="sticky top-0 z-40 bg-gradient-to-l from-brand-900 to-brand-700 text-white shadow-md">
+  <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <div class="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-2xl border border-white/20">🐑</div>
+      <div>
+        <h1 id="headerTitle" class="text-base font-extrabold leading-tight">مواشي الجزائر</h1>
+        <p class="text-[11px] text-brand-100">القطيع • العدّ الذكي • المحاسبة</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="headerCount" class="bg-earth-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">0 رأس</span>
+      <button onclick="openSettings()" aria-label="الإعدادات والنسخ الاحتياطي" class="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-base">⚙️</button>
+    </div>
+  </div>
+</header>
+
+<div id="toastBox" class="fixed top-16 left-1/2 -translate-x-1/2 z-[70] w-11/12 max-w-md pointer-events-none flex flex-col gap-2" aria-live="polite"></div>
+
+<main class="max-w-md mx-auto px-3 pt-4">
+
+  <!-- ===== الرئيسية ===== -->
+  <section id="tab-home" class="tab-content space-y-3.5">
+    <div id="homeStats" class="grid grid-cols-2 gap-2.5"></div>
+    <div class="grid grid-cols-4 gap-2 text-center">
+      <button onclick="openSheepModal()" class="card py-2.5 text-[11px] font-bold text-brand-800 active:scale-95"><span class="block text-xl">➕</span>رأس جديد</button>
+      <button onclick="openSaleModal()" class="card py-2.5 text-[11px] font-bold text-earth-700 active:scale-95"><span class="block text-xl">🤝</span>تسجيل بيع</button>
+      <button onclick="openFinanceModal()" class="card py-2.5 text-[11px] font-bold text-red-700 active:scale-95"><span class="block text-xl">💸</span>مصروف</button>
+      <button onclick="switchTab('camera')" class="card py-2.5 text-[11px] font-bold text-indigo-700 active:scale-95"><span class="block text-xl">📷</span>عدّ القطيع</button>
+    </div>
+    <div class="card p-3.5">
+      <h3 class="font-bold text-sm text-gray-800 mb-2">🔔 تنبيهات ومواعيد</h3>
+      <div id="homeAlerts" class="space-y-2 text-xs"></div>
+    </div>
+  </section>
+
+  <!-- ===== القطيع ===== -->
+  <section id="tab-herd" class="tab-content space-y-3">
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="font-bold text-brand-900 text-base">🐑 بطاقات القطيع (<span id="herdBadge">0</span>)</h2>
+      <div class="flex gap-2">
+        <button onclick="openBreeds()" class="btn bg-earth-100 text-earth-800 border border-earth-300">🧬 السلالات</button>
+        <button onclick="openSheepModal()" class="btn bg-brand-700 text-white shadow">+ إضافة رأس</button>
+      </div>
+    </div>
+    <div id="herdSummary" class="flex flex-wrap gap-1.5 text-[11px]"></div>
+    <input id="herdSearch" oninput="renderHerd()" type="search" placeholder="🔎 ابحث برقم الحلق أو الملاحظات..." class="inp">
+    <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+      <select id="filterBreed" onchange="renderHerd()" class="bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold"><option value="all">كل السلالات</option></select>
+      <select id="filterStatus" onchange="renderHerd()" class="bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold">
+        <option value="active">الموجودة حالياً</option>
+        <option value="all">كل الحالات</option>
+        <option value="forSale">معروضة للبيع</option>
+        <option value="sold">مباعة</option>
+        <option value="dead">نافقة</option>
+      </select>
+      <select id="filterHealth" onchange="renderHerd()" class="bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold">
+        <option value="all">كل الحالات الصحية</option>
+        <option value="healthy">سليمة</option>
+        <option value="pregnant">حامل</option>
+        <option value="treating">تحت العلاج</option>
+        <option value="vaccinated">ملقّحة حديثاً</option>
+      </select>
+    </div>
+    <div id="herdList" class="space-y-3"></div>
+  </section>
+
+  <!-- ===== المبيعات ===== -->
+  <section id="tab-sales" class="tab-content space-y-3">
+    <div class="flex items-center justify-between">
+      <h2 class="font-bold text-brand-900 text-base">🤝 المبيعات والديون</h2>
+      <button onclick="openSaleModal()" class="btn bg-brand-700 text-white shadow">+ تسجيل بيع</button>
+    </div>
+    <div class="grid grid-cols-3 gap-2 text-center">
+      <div class="card p-3"><span class="text-[11px] text-gray-500 block">إجمالي المبيعات</span><span id="salesTotal" class="font-extrabold text-sm text-brand-800">0 دج</span></div>
+      <div class="card p-3"><span class="text-[11px] text-gray-500 block">المقبوض</span><span id="salesPaid" class="font-extrabold text-sm text-blue-700">0 دج</span></div>
+      <div class="card p-3"><span class="text-[11px] text-gray-500 block">الديون</span><span id="salesDebt" class="font-extrabold text-sm text-red-600">0 دج</span></div>
+    </div>
+    <div class="flex gap-1.5">
+      <button id="sf-all" onclick="setSalesFilter('all')" class="seg on">الكل</button>
+      <button id="sf-debt" onclick="setSalesFilter('debt')" class="seg">عليها ديون</button>
+      <button id="sf-pickup" onclick="setSalesFilter('pickup')" class="seg">بانتظار الاستلام</button>
+    </div>
+    <div id="salesList" class="space-y-3"></div>
+  </section>
+
+  <!-- ===== العدّ الذكي ===== -->
+  <section id="tab-camera" class="tab-content space-y-3.5">
+    <div class="card overflow-hidden">
+      <div class="p-3 bg-gray-50 border-b border-gray-200 space-y-2.5">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-bold text-gray-800 text-sm">📷 العدّ الذكي للأغنام</span>
+          <span id="camStatus" class="text-[11px] px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-bold">جاهز للتشغيل</span>
+        </div>
+        <div class="grid grid-cols-2 gap-1.5 bg-gray-200/80 p-1 rounded-xl">
+          <button id="modeBtn-crowd" onclick="setCountMode('crowd')" class="py-2 px-2 rounded-lg text-xs font-extrabold bg-brand-700 text-white">🐑 وضع الحوش والتجمع</button>
+          <button id="modeBtn-line" onclick="setCountMode('line')" class="py-2 px-2 rounded-lg text-xs font-bold text-gray-700">🚪 وضع المرور (خط)</button>
+        </div>
+        <p id="modeDesc" class="text-[11px] text-brand-900 bg-brand-50 border border-brand-200 px-2.5 py-1.5 rounded-lg leading-relaxed"></p>
+      </div>
+
+      <div class="relative w-full aspect-[4/3] bg-black overflow-hidden">
+        <video id="camVideo" class="absolute inset-0 w-full h-full object-contain hidden" playsinline muted autoplay></video>
+        <canvas id="camCanvas" width="640" height="480" class="absolute inset-0 w-full h-full object-contain cursor-crosshair"></canvas>
+        <div id="camPlaceholder" class="absolute inset-0 flex items-center justify-center text-center p-5 text-gray-300 pointer-events-none">
+          <div class="space-y-2 max-w-xs">
+            <div class="text-4xl">🐑📷</div>
+            <p class="text-sm font-bold text-white">شغّل الكاميرا للبدء</p>
+            <p class="text-xs text-gray-400 leading-relaxed">وجّه كاميرا الهاتف نحو القطيع ثم اضغط «تشغيل الكاميرا».</p>
+          </div>
+        </div>
+        <span id="liveBadge" class="hidden absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">● مباشر</span>
+        <span id="snapBadge" class="hidden absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded animate-pulse">لقطة مجمدة: المس لإضافة/حذف نقطة</span>
+      </div>
+
+      <div id="camError" class="hidden mx-3 mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800"></div>
+
+      <div class="p-3.5 bg-brand-50/70 space-y-3">
+        <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-brand-100 shadow-sm">
+          <div>
+            <span id="countLabel" class="text-xs text-gray-500 block">العدد المحسوب</span>
+            <div class="flex items-baseline gap-1.5">
+              <span id="countNum" class="text-4xl font-extrabold text-brand-800">0</span>
+              <span class="text-sm font-bold text-gray-600">رأس</span>
+            </div>
+            <span id="countSub" class="text-[11px] text-gray-500 block mt-0.5"></span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="adjustCount(-1)" aria-label="ناقص واحد" class="w-10 h-10 rounded-xl bg-gray-100 font-bold text-lg text-red-600 active:scale-95">-1</button>
+            <button onclick="adjustCount(1)" aria-label="زائد واحد" class="w-10 h-10 rounded-xl bg-brand-100 font-bold text-lg text-brand-800 active:scale-95">+1</button>
+            <button onclick="resetCounter()" class="px-3 h-10 rounded-xl bg-red-50 text-red-600 font-bold text-xs active:scale-95">تصفير</button>
+          </div>
+        </div>
+        <div id="regCompare" class="text-xs bg-white border border-gray-200 rounded-xl px-3 py-2 flex items-center justify-between"></div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button id="camBtn" onclick="toggleCamera()" class="btn bg-brand-700 text-white shadow-sm">📹 تشغيل الكاميرا</button>
+          <button onclick="switchFacing()" class="btn bg-white border border-gray-300 text-gray-700">🔄 تبديل العدسة</button>
+        </div>
+        <button id="snapBtn" onclick="toggleSnapshot()" class="btn w-full bg-amber-600 text-white shadow-sm">📸 لقطة تصحيح باللمس (تجميد الشاشة)</button>
+        <button onclick="saveCount()" class="btn w-full bg-earth-500 text-white shadow-sm">✅ حفظ نتيجة الجرد</button>
+        <label class="flex items-center gap-2 text-[11px] text-gray-600">
+          حساسية الكشف
+          <input id="sens" type="range" min="20" max="80" value="40" oninput="Cam.thr=this.value/100" class="flex-1 accent-brand-700">
+        </label>
+      </div>
+    </div>
+
+    <div class="card p-3.5">
+      <h3 class="font-bold text-xs text-gray-700 mb-2.5">📋 سجل الجرد السابق</h3>
+      <div id="countLogs" class="space-y-2 text-xs"></div>
+    </div>
+  </section>
+
+  <!-- ===== المالية ===== -->
+  <section id="tab-finance" class="tab-content space-y-3.5">
+    <div class="card p-3 space-y-2.5">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-gray-700">📅 فترة التقرير:</span>
+        <div class="flex gap-1">
+          <button id="fp-today" onclick="setFinPeriod('today')" class="seg">اليوم</button>
+          <button id="fp-month" onclick="setFinPeriod('month')" class="seg on">الشهر</button>
+          <button id="fp-all" onclick="setFinPeriod('all')" class="seg">الكل</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 pt-1.5 border-t border-gray-100">
+        <div><label class="text-[10px] text-gray-500 block">من تاريخ:</label><input type="date" id="finFrom" onchange="setFinPeriod('custom')" class="w-full text-xs p-1.5 border border-gray-200 rounded-lg"></div>
+        <div><label class="text-[10px] text-gray-500 block">إلى تاريخ:</label><input type="date" id="finTo" onchange="setFinPeriod('custom')" class="w-full text-xs p-1.5 border border-gray-200 rounded-lg"></div>
+      </div>
+    </div>
+    <div class="grid grid-cols-3 gap-2 text-center">
+      <div class="bg-emerald-50 border border-emerald-200 p-2.5 rounded-2xl"><span class="text-[10px] text-emerald-700 font-bold block">المداخيل المقبوضة</span><span id="finIncome" class="text-xs font-extrabold text-emerald-800">0 دج</span></div>
+      <div class="bg-red-50 border border-red-200 p-2.5 rounded-2xl"><span class="text-[10px] text-red-700 font-bold block">المصاريف</span><span id="finExpense" class="text-xs font-extrabold text-red-800">0 دج</span></div>
+      <div class="bg-white border border-gray-200 p-2.5 rounded-2xl"><span class="text-[10px] text-gray-600 font-bold block">الصافي</span><span id="finNet" class="text-xs font-extrabold text-gray-800">0 دج</span></div>
+    </div>
+    <div class="card p-3.5 space-y-2">
+      <h3 class="text-xs font-bold text-gray-700">توزيع المصاريف (علف، تبن، بيطري، عمال)</h3>
+      <div id="finBreakdown" class="space-y-2 text-xs"></div>
+    </div>
+    <div class="card p-3.5 space-y-2">
+      <h3 class="text-xs font-bold text-gray-700">آخر 6 أشهر <span class="font-normal text-gray-400">(أخضر: مداخيل • أحمر: مصاريف)</span></h3>
+      <div id="finChart" class="flex items-end justify-between gap-1 h-28"></div>
+    </div>
+    <button onclick="openFinanceModal()" class="w-full py-3 bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm rounded-xl shadow-sm active:scale-95">+ تسجيل مصروف أو مدخول</button>
+    <div class="card overflow-hidden">
+      <div class="p-3 bg-gray-50 border-b border-gray-100 font-bold text-xs text-gray-700">سجل المعاملات</div>
+      <div id="finList" class="divide-y divide-gray-100"></div>
+    </div>
+  </section>
+
+  <!-- ===== الرعي ===== -->
+  <section id="tab-grazing" class="tab-content space-y-3.5">
+    <div class="bg-gradient-to-l from-brand-800 to-brand-700 text-white p-4 rounded-2xl shadow-sm flex items-center justify-between">
+      <div>
+        <h2 class="font-bold text-sm">🌿 متابعة الرعي والرعاة</h2>
+        <p class="text-[11px] text-brand-100 mt-0.5">أيام الرعي، المنطقة، وأجرة الراعي</p>
+      </div>
+      <button onclick="openGrazingModal()" class="bg-white text-brand-800 font-bold text-xs px-3 py-2 rounded-xl shadow-sm active:scale-95">+ يوم رعي</button>
+    </div>
+    <div class="grid grid-cols-2 gap-2.5">
+      <div class="card p-3"><span class="text-[11px] text-gray-500 block">أيام الرعي المسجلة</span><span id="grazDays" class="text-lg font-extrabold text-gray-800">0 يوم</span></div>
+      <div class="card p-3"><span class="text-[11px] text-gray-500 block">إجمالي أجور الرعاة</span><span id="grazWages" class="text-lg font-extrabold text-earth-600">0 دج</span></div>
+    </div>
+    <div id="grazByShepherd" class="card p-3.5 hidden"></div>
+    <div id="grazList" class="space-y-2.5"></div>
+  </section>
+  <!-- ===== البيطري ===== -->
+  <section id="tab-vet" class="tab-content space-y-3">
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="font-bold text-brand-900 text-base">🩺 البيطري والفحوصات</h2>
+      <div class="flex gap-2">
+        <button onclick="openVets()" class="btn bg-earth-100 text-earth-800 border border-earth-300">👨‍⚕️ الأطباء</button>
+        <button onclick="openVisitModal()" class="btn bg-brand-700 text-white shadow">+ زيارة</button>
+      </div>
+    </div>
+    <div class="grid grid-cols-3 gap-2 text-center">
+      <div class="card p-3"><span class="text-[11px] text-gray-500 block">إجمالي المستحق</span><span id="vetTotal" class="font-extrabold text-sm text-gray-800">0 دج</span></div>
+      <div class="card p-3"><span class="text-[11px] text-gray-500 block">المدفوع</span><span id="vetPaid" class="font-extrabold text-sm text-blue-700">0 دج</span></div>
+      <div class="card p-3"><span class="text-[11px] text-gray-500 block">دين للبيطري</span><span id="vetDebt" class="font-extrabold text-sm text-red-600">0 دج</span></div>
+    </div>
+    <div class="card p-3.5">
+      <h3 class="font-bold text-sm text-gray-800 mb-2">📅 المواعيد القادمة</h3>
+      <div id="vetUpcoming" class="space-y-2 text-xs"></div>
+    </div>
+    <div class="flex gap-1.5">
+      <button id="vf-all" onclick="setVetFilter('all')" class="seg on">كل الزيارات</button>
+      <button id="vf-debt" onclick="setVetFilter('debt')" class="seg">عليها دين</button>
+    </div>
+    <div id="vetList" class="space-y-3"></div>
+  </section>
+</main>
+
+<!-- التنقل السفلي -->
+<nav class="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom)]">
+  <div class="max-w-md mx-auto grid grid-cols-7 h-16">
+    <button data-tab="home" onclick="switchTab('home')" class="nav-btn flex flex-col items-center justify-center gap-0.5"><span class="text-lg">🏠</span><span class="text-[10px]">الرئيسية</span></button>
+    <button data-tab="herd" onclick="switchTab('herd')" class="nav-btn flex flex-col items-center justify-center gap-0.5"><span class="text-lg">🐑</span><span class="text-[10px]">القطيع</span></button>
+    <button data-tab="sales" onclick="switchTab('sales')" class="nav-btn flex flex-col items-center justify-center gap-0.5"><span class="text-lg">🤝</span><span class="text-[10px]">المبيعات</span></button>
+    <button data-tab="camera" onclick="switchTab('camera')" class="nav-btn flex flex-col items-center justify-center gap-0.5"><span class="text-lg">📷</span><span class="text-[10px]">العدّ</span></button>
+    <button data-tab="finance" onclick="switchTab('finance')" class="nav-btn flex flex-col items-center justify-center gap-0.5"><span class="text-lg">💰</span><span class="text-[10px]">المالية</span></button>
+    <button data-tab="vet" onclick="switchTab('vet')" class="nav-btn flex flex-col items-center justify-center gap-0.5"><span class="text-lg">🩺</span><span class="text-[10px]">البيطري</span></button>
+    <button data-tab="grazing" onclick="switchTab('grazing')" class="nav-btn flex flex-col items-center justify-center gap-0.5"><span class="text-lg">🌿</span><span class="text-[10px]">الرعي</span></button>
+  </div>
+</nav>
+
+<!-- ===================== النوافذ ===================== -->
+
+<!-- الإعدادات والنسخ الاحتياطي -->
+<div id="settingsModal" class="modal fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-3 overflow-y-auto" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl my-auto">
+    <div class="p-3.5 bg-brand-800 text-white flex items-center justify-between"><h3 class="font-bold text-sm">⚙️ الإعدادات والنسخ الاحتياطي</h3><button onclick="closeModal('settingsModal')" aria-label="إغلاق" class="px-2 py-1 rounded hover:bg-white/20 font-bold">✕</button></div>
+    <div class="p-4 space-y-4 max-h-[82vh] overflow-y-auto text-xs">
+      <div class="space-y-2">
+        <h4 class="font-bold text-sm text-gray-800">🏡 بيانات المزرعة (تظهر في بطاقة البيع)</h4>
+        <div><label class="lbl">اسم المزرعة / صاحبها</label><input id="setFarm" class="inp" placeholder="مثال: مزرعة الحاج أحمد"></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="lbl">رقم الهاتف</label><input id="setPhone" type="tel" class="inp" placeholder="0550..."></div>
+          <div><label class="lbl">الولاية / المنطقة</label><input id="setPlace" class="inp" placeholder="الجلفة"></div>
+        </div>
+        <div><label class="lbl">أجرة الراعي الافتراضية (دج/يوم)</label><input id="setWage" type="number" min="0" class="inp"></div>
+        <button onclick="saveSettings()" class="btn w-full bg-brand-700 text-white">حفظ الإعدادات</button>
+      </div>
+      <div class="space-y-2 border-t pt-3">
+        <h4 class="font-bold text-sm text-gray-800">💾 النسخ الاحتياطي</h4>
+        <p id="backupInfo" class="text-gray-500"></p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="exportBackup()" class="btn bg-brand-700 text-white">⬇️ تصدير نسخة (JSON)</button>
+          <label class="btn bg-earth-500 text-white cursor-pointer">⬆️ استيراد نسخة<input type="file" accept=".json,application/json" class="hidden" onchange="importBackup(event)"></label>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="exportCSV('vet')" class="btn bg-gray-100 text-gray-700">CSV البيطري</button>
+          <button onclick="exportCSV('herd')" class="btn bg-gray-100 text-gray-700">CSV القطيع</button>
+          <button onclick="exportCSV('sales')" class="btn bg-gray-100 text-gray-700">CSV المبيعات</button>
+          <button onclick="exportCSV('finance')" class="btn bg-gray-100 text-gray-700">CSV المالية</button>
+        </div>
+        <p class="text-[11px] text-gray-400">ملفات CSV تُفتح مباشرة في Excel.</p>
+      </div>
+      <div class="space-y-2 border-t pt-3">
+        <h4 class="font-bold text-sm text-gray-800">🧪 بيانات تجريبية</h4>
+        <button onclick="loadDemo()" class="btn w-full bg-indigo-50 text-indigo-700 border border-indigo-200">تحميل بيانات تجريبية للتعرّف على التطبيق</button>
+      </div>
+      <div class="space-y-2 border-t pt-3">
+        <h4 class="font-bold text-sm text-red-700">⚠️ منطقة الخطر</h4>
+        <button onclick="resetAll()" class="btn w-full bg-red-50 text-red-700 border border-red-200">مسح كل البيانات نهائياً</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- تفاصيل رأس وسجل الأحداث -->
+<div id="detailModal" class="modal fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-3 overflow-y-auto" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl my-auto">
+    <div class="p-3.5 bg-brand-800 text-white flex items-center justify-between"><h3 id="detailTitle" class="font-bold text-sm">السجل الصحي</h3><button onclick="closeModal('detailModal')" aria-label="إغلاق" class="px-2 py-1 rounded hover:bg-white/20 font-bold">✕</button></div>
+    <div id="detailBody" class="p-4 space-y-3 max-h-[82vh] overflow-y-auto text-xs"></div>
+  </div>
+</div>
+
+<!-- بطاقة رأس -->
+<div id="sheepModal" class="modal fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-3 overflow-y-auto" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl my-auto">
+    <div class="p-3.5 bg-brand-800 text-white flex items-center justify-between"><h3 id="sheepModalTitle" class="font-bold text-sm">إضافة بطاقة</h3><button onclick="closeModal('sheepModal')" aria-label="إغلاق" class="px-2 py-1 rounded hover:bg-white/20 font-bold">✕</button></div>
+    <form id="sheepForm" onsubmit="saveSheep(event)" class="p-4 space-y-3 max-h-[82vh] overflow-y-auto">
+      <input type="hidden" id="sheepId">
+      <div class="flex flex-col items-center gap-2 p-2.5 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
+        <img id="sheepPreview" alt="معاينة الصورة" class="w-full h-32 object-cover rounded-lg hidden">
+        <div id="sheepPreviewEmpty" class="w-full h-32 rounded-lg bg-gray-200 flex items-center justify-center text-4xl">🐑</div>
+        <div class="grid grid-cols-3 gap-1.5 w-full">
+          <button type="button" onclick="document.getElementById('photoCam').click()" class="btn bg-brand-700 text-white">📷 كاميرا</button>
+          <button type="button" onclick="document.getElementById('photoFile').click()" class="btn bg-gray-700 text-white">🖼️ معرض</button>
+          <button type="button" onclick="clearPhoto()" class="btn bg-red-50 text-red-600">حذف</button>
+        </div>
+        <input type="file" id="photoCam" accept="image/*" capture="environment" onchange="handlePhoto(event)" class="hidden">
+        <input type="file" id="photoFile" accept="image/*" onchange="handlePhoto(event)" class="hidden">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="lbl" for="sheepTag">رقم الحلق / الاسم *</label><input id="sheepTag" required class="inp" placeholder="DZ-105"></div>
+        <div>
+          <div class="flex items-center justify-between mb-1"><label class="text-xs font-bold text-gray-700" for="sheepBreed">السلالة</label><button type="button" onclick="openBreeds()" class="text-[10px] text-earth-600 font-bold underline">+ إدارة</button></div>
+          <select id="sheepBreed" class="inp"></select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="lbl" for="sheepGender">الجنس</label><select id="sheepGender" class="inp"><option value="ewe">نعجة (أنثى)</option><option value="lamb">خروف (ذكر)</option><option value="ram">كبش فحل</option></select></div>
+        <div><label class="lbl" for="sheepWeight">الوزن التقريبي (كغ)</label><input id="sheepWeight" type="number" min="0" step="0.1" class="inp" placeholder="55"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="lbl" for="sheepHealth">الحالة الصحية</label><select id="sheepHealth" class="inp"><option value="healthy">سليمة وممتازة</option><option value="pregnant">حامل (عشار)</option><option value="treating">تحت العلاج البيطري</option><option value="vaccinated">تم تلقيحها (لقاح) حديثاً</option></select></div>
+        <div><label class="lbl" for="sheepBirth">تاريخ الميلاد</label><input id="sheepBirth" type="date" class="inp"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="lbl" for="sheepBreeding">بداية الحمل (التنزية)</label><input id="sheepBreeding" type="date" class="inp"><span class="text-[10px] text-gray-400">يحسب موعد الولادة (~150 يوماً)</span></div>
+        <div><label class="lbl" for="sheepMother">الأم (اختياري)</label><select id="sheepMother" class="inp"></select></div>
+      </div>
+      <div class="p-2.5 bg-earth-50 border border-earth-200 rounded-xl space-y-2">
+        <div><label class="lbl" for="sheepStatus">الوضع في القطيع</label><select id="sheepStatus" onchange="toggleSheepPrice()" class="inp"><option value="present">موجودة في القطيع</option><option value="forSale">معروضة للبيع</option><option value="dead">نافقة</option><option value="sold" disabled>مباعة (من تبويب المبيعات)</option></select></div>
+        <div id="sheepPriceWrap" class="hidden"><label class="lbl" for="sheepPrice">السعر المطلوب (دج)</label><input id="sheepPrice" type="number" min="0" class="inp" placeholder="75000"></div>
+      </div>
+      <div><label class="lbl" for="sheepNotes">ملاحظات</label><textarea id="sheepNotes" rows="2" class="inp" placeholder="أي معلومة إضافية..."></textarea></div>
+      <button type="submit" class="w-full py-3 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl text-sm">💾 حفظ البطاقة</button>
+    </form>
+  </div>
+</div>
+
+<!-- السلالات -->
+<div id="breedsModal" class="modal fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-3 overflow-y-auto" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl my-auto">
+    <div class="p-3.5 bg-earth-600 text-white flex items-center justify-between"><h3 class="font-bold text-sm">🧬 إدارة السلالات</h3><button onclick="closeModal('breedsModal')" aria-label="إغلاق" class="px-2 py-1 rounded hover:bg-white/20 font-bold">✕</button></div>
+    <div class="p-4 space-y-3 max-h-[82vh] overflow-y-auto">
+      <form onsubmit="addBreed(event)" class="flex gap-2">
+        <input id="newBreed" required class="inp flex-1" placeholder="اسم السلالة الجديدة (مثال: السردي)">
+        <button class="btn bg-brand-700 text-white whitespace-nowrap">+ إضافة</button>
+      </form>
+      <p class="text-[11px] text-gray-500">عدّل الاسم مباشرة داخل الحقل (يتحدث في كل البطاقات)، أو احذف السلالة غير المستعملة.</p>
+      <div id="breedsList" class="space-y-2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- بيع -->
+<div id="saleModal" class="modal fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-3 overflow-y-auto" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl my-auto">
+    <div class="p-3.5 bg-earth-600 text-white flex items-center justify-between"><h3 id="saleModalTitle" class="font-bold text-sm">🤝 تسجيل بيع</h3><button onclick="closeModal('saleModal')" aria-label="إغلاق" class="px-2 py-1 rounded hover:bg-white/20 font-bold">✕</button></div>
+    <form onsubmit="saveSale(event)" class="p-4 space-y-3 max-h-[85vh] overflow-y-auto">
+      <input type="hidden" id="saleId">
+      <div id="saleItemWrap" class="space-y-1.5">
+        <label class="lbl" for="saleSheep">الرأس المباع</label>
+        <select id="saleSheep" onchange="onSaleSheepChange()" class="inp"></select>
+        <input id="saleCustom" class="inp hidden" placeholder="وصف البيع (مثال: 3 خراف أولاد جلال)">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="lbl" for="saleTotal">ثمن البيع الإجمالي (دج) *</label><input id="saleTotal" type="number" min="1" required oninput="onPayTypeChange()" class="inp font-bold text-brand-800" placeholder="80000"></div>
+        <div><label class="lbl" for="saleDate">تاريخ البيع *</label><input id="saleDate" type="date" required class="inp"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+        <div><label class="lbl" for="saleBuyer">اسم الزبون</label><input id="saleBuyer" class="inp" placeholder="الحاج محمد"></div>
+        <div><label class="lbl" for="salePhone">هاتف الزبون</label><input id="salePhone" type="tel" class="inp" placeholder="0550..."></div>
+      </div>
+      <div class="p-2.5 bg-blue-50/60 border border-blue-200 rounded-xl space-y-2">
+        <label class="text-xs font-bold text-blue-900 block">💳 طريقة الدفع</label>
+        <div class="grid grid-cols-3 gap-1.5">
+          <label class="radio-pill rp-green relative cursor-pointer"><input type="radio" name="payType" value="cash" checked onchange="onPayTypeChange()"><div class="p-2 text-center rounded-lg border border-gray-300 bg-white font-bold text-xs">نقداً (خالص)</div></label>
+          <label class="radio-pill rp-red relative cursor-pointer"><input type="radio" name="payType" value="credit" onchange="onPayTypeChange()"><div class="p-2 text-center rounded-lg border border-gray-300 bg-white font-bold text-xs">كريدي (دين)</div></label>
+          <label class="radio-pill rp-blue relative cursor-pointer"><input type="radio" name="payType" value="installments" onchange="onPayTypeChange()"><div class="p-2 text-center rounded-lg border border-gray-300 bg-white font-bold text-xs">بالتقسيط</div></label>
+        </div>
+        <div id="payDetails" class="grid grid-cols-2 gap-2 pt-1">
+          <div><label class="text-[11px] font-bold text-gray-700 block mb-1" for="salePaid">المدفوع الآن (دج)</label><input id="salePaid" type="number" min="0" value="0" oninput="onPayTypeChange(true)" class="w-full p-1.5 border border-gray-300 rounded-lg text-xs bg-white"></div>
+          <div><label class="text-[11px] font-bold text-red-700 block mb-1">المتبقي (دين)</label><input id="saleRemain" readonly value="0 دج" class="w-full p-1.5 border border-red-200 rounded-lg text-xs bg-red-50 font-bold text-red-700"></div>
+        </div>
+        <div id="installNoteWrap" class="hidden"><label class="text-[11px] font-bold text-gray-700 block mb-1" for="saleInstall">ملاحظة السداد</label><input id="saleInstall" class="w-full p-1.5 border border-gray-300 rounded-lg text-xs bg-white" placeholder="3 أقساط شهرية - كل 5 في الشهر"></div>
+      </div>
+      <div class="p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">
+        <label class="text-xs font-bold text-amber-900 block">📦 حالة التسليم</label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="radio-pill rp-dark relative cursor-pointer"><input type="radio" name="delivery" value="taken" checked onchange="onDeliveryChange()"><div class="p-2 text-center rounded-lg border border-gray-300 bg-white font-bold text-xs">✅ أخذها الزبون</div></label>
+          <label class="radio-pill rp-amber relative cursor-pointer"><input type="radio" name="delivery" value="left" onchange="onDeliveryChange()"><div class="p-2 text-center rounded-lg border border-gray-300 bg-white font-bold text-xs">⏳ تركها (يأخذها لاحقاً)</div></label>
+        </div>
+        <div id="pickupWrap" class="hidden"><label class="text-[11px] font-bold text-amber-900 block mb-1" for="salePickup">الموعد المتفق عليه للاستلام</label><input id="salePickup" type="date" class="w-full p-1.5 border border-amber-300 rounded-lg text-xs bg-white"></div>
+      </div>
+      <button type="submit" class="w-full py-3 bg-earth-600 hover:bg-earth-700 text-white font-bold rounded-xl text-sm shadow">تأكيد وحفظ عملية البيع</button>
+    </form>
+  </div>
+</div>
+
+<!-- دفعة -->
+<div id="payModal" class="modal fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-4" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl">
+    <div class="p-3.5 bg-brand-800 text-white flex items-center justify-between"><h3 class="font-bold text-sm">💵 تسجيل دفعة من الزبون</h3><button onclick="closeModal('payModal')" aria-label="إغلاق" class="px-2 py-1 rounded hover:bg-white/20 font-bold">✕</button></div>
+    <form onsubmit="savePayment(event)" class="p-4 space-y-3">
+      <input type="hidden" id="paySaleId">
+      <div class="p-2.5 bg-gray-50 rounded-xl text-xs space-y-1"><p id="payTitle" class="font-bold text-gray-800"></p><p id="payDebt" class="text-red-600 font-bold"></p></div>
+      <div><label class="lbl" for="payAmount">قيمة الدفعة (دج) *</label><input id="payAmount" type="number" min="1" required class="inp font-bold"></div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="lbl" for="payDate">تاريخ الاستلام *</label><input id="payDate" type="date" required class="inp"></div>
+        <div><label class="lbl" for="payNote">ملاحظة</label><input id="payNote" class="inp" placeholder="قسط ثانٍ"></div>
+      </div>
+      <button class="w-full py-2.5 bg-brand-700 text-white font-bold rounded-xl text-sm">حفظ الدفعة وخصمها من الدين</button>
+    </form>
+  </div>
+</div>
+
+<!-- بطاقة البيع -->
+<div id="cardModal" class="modal fixed inset-0 z-50 bg-black/70 hidden items-center justify-center p-3 overflow-y-auto" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-sm p-4 my-auto">
+    <div class="flex justify-between items-center mb-2"><h3 class="font-bold text-sm">📤 بطاقة عرض للزبون</h3><button onclick="closeModal('cardModal')" aria-label="إغلاق" class="text-gray-500 font-bold text-lg">✕</button></div>
+    <canvas id="shareCanvas" width="600" height="750" class="w-full rounded-xl border shadow-sm mb-3"></canvas>
+    <div class="grid grid-cols-3 gap-2">
+      <button onclick="downloadCard()" class="btn bg-gray-800 text-white">⬇️ صورة</button>
+      <button onclick="shareCard()" class="btn bg-brand-700 text-white">📤 مشاركة</button>
+      <button onclick="shareCardText()" class="btn bg-green-600 text-white">💬 واتساب</button>
+    </div>
+  </div>
+</div>
+
+<!-- معاملة مالية -->
+<div id="finModal" class="modal fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-4" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl">
+    <div class="p-3.5 bg-brand-800 text-white flex items-center justify-between"><h3 class="font-bold text-sm">تسجيل معاملة مالية</h3><button onclick="closeModal('finModal')" aria-label="إغلاق" class="px-2 py-1 rounded hover:bg-white/20 font-bold">✕</button></div>
+    <form onsubmit="saveFinance(event)" class="p-4 space-y-3">
+      <div class="grid grid-cols-2 gap-2">
+        <label class="radio-pill rp-red relative cursor-pointer"><input type="radio" name="finType" value="expense" checked onchange="updateFinCats()"><div class="p-2 text-center rounded-xl border border-gray-200 bg-white font-bold text-xs">مصروفات (-)</div></label>
+        <label class="radio-pill rp-green relative cursor-pointer"><input type="radio" name="finType" value="income" onchange="updateFinCats()"><div class="p-2 text-center rounded-xl border border-gray-200 bg-white font-bold text-xs">مداخيل أخرى (+)</div></label>
+      </div>
+      <div><label class="lbl" for="finCat">الفئة *</label><select id="finCat" class="inp"></select></div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="lbl" for="finAmount">المبلغ (دج) *</label><input id="finAmount" type="number" min="1" required class="inp" placeholder="15000"></div>
+        <div><label class="lbl" for="finDate">التاريخ *</label><input id="finDate" type="date" required class="inp"></div>
+      </div>
+      <div><label class="lbl" for="finNote">التفاصيل</label><input id="finNote" class="inp" placeholder="شراء 30 بالة تبن + شعير"></div>
+      <button class="w-full py-3 bg-brand-700 text-white font-bold rounded-xl text-sm">حفظ</button>
+    </form>
+  </div>
+</div>
+
+<!-- رعي -->
+<div id="grazModal" class="modal fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-4" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl">
+    <div class="p-3.5 bg-brand-800 text-white flex items-center justify-between"><h3 class="font-bold text-sm">🌿 تسجيل يوم رعي</h3><button onclick="closeModal('grazModal')" aria-label="إغلاق" class="px-2 py-1 rounded hover:bg-white/20 font-bold">✕</button></div>
+    <form onsubmit="saveGrazing(event)" class="p-4 space-y-3">
+      <div><label class="lbl" for="grazShepherd">اسم الراعي / العامل *</label><input id="grazShepherd" required class="inp" placeholder="عمي الحاج قدور" list="shepherdList"><datalist id="shepherdList"></datalist></div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="lbl" for="grazDate">التاريخ *</label><input id="grazDate" type="date" required class="inp"></div>
+        <div><label class="lbl" for="grazWage">أجرة اليوم (دج)</label><input id="grazWage" type="number" min="0" class="inp"></div>
+      </div>
+      <div><label class="lbl" for="grazLoc">منطقة الرعي *</label><input id="grazLoc" required class="inp" placeholder="السهول الجنوبية"></div>
+      <div><label class="lbl" for="grazNotes">ملاحظات</label><input id="grazNotes" class="inp" placeholder="حالة المرعى..."></div>
+      <label class="flex items-center gap-2 text-xs"><input type="checkbox" id="grazExpense" checked class="w-4 h-4 accent-brand-700"> إضافة الأجرة تلقائياً إلى المصاريف</label>
+      <button class="w-full py-3 bg-brand-700 text-white font-bold rounded-xl text-sm">حفظ سجل الرعي</button>
+    </form>
+  </div>
+</div>
+
+
+<!-- زيارة بيطري -->
+<div id="visitModal" class="modal fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-3 overflow-y-auto" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl my-auto">
+    <div class="p-3.5 bg-brand-800 text-white flex items-center justify-between"><h3 id="visitModalTitle" class="font-bold text-sm">🩺 تسجيل زيارة بيطري</h3><button onclick="closeModal('visitModal')" aria-label="إغلاق" class="px-2 py-1 rounded hover:bg-white/20 font-bold">✕</button></div>
+    <form onsubmit="saveVisit(event)" class="p-4 space-y-3 max-h-[85vh] overflow-y-auto">
+      <input type="hidden" id="visitId">
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <div class="flex items-center justify-between mb-1"><label class="text-xs font-bold text-gray-700" for="visVet">الطبيب</label><button type="button" onclick="openVets()" class="text-[10px] text-earth-600 font-bold underline">+ إدارة</button></div>
+          <select id="visVet" class="inp"></select>
+        </div>
+        <div><label class="lbl" for="visDate">تاريخ الفحص *</label><input id="visDate" type="date" required class="inp"></div>
+      </div>
+      <div><label class="lbl" for="visReason">سبب الزيارة / التشخيص</label><input id="visReason" class="inp" placeholder="مثال: إسهال عند الخرفان، فحص حمل..."></div>
+
+      <div class="p-2.5 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+        <label class="text-xs font-bold text-gray-800 block">🐑 الرؤوس المفحوصة</label>
+        <label class="flex items-center gap-2 text-xs"><input type="checkbox" id="visAll" onchange="onVisAllChange()" class="w-4 h-4 accent-brand-700"> القطيع كله</label>
+        <div id="visAnimals" class="max-h-28 overflow-y-auto grid grid-cols-3 gap-1.5 text-[11px]"></div>
+        <label class="flex items-center gap-2 text-[11px] text-gray-600"><input type="checkbox" id="visLog" checked class="w-4 h-4 accent-brand-700"> تسجيل العلاج تلقائياً في السجل الصحي لهذه الرؤوس</label>
+      </div>
+
+      <div class="p-2.5 bg-blue-50/60 border border-blue-200 rounded-xl space-y-2">
+        <div class="flex items-center justify-between"><label class="text-xs font-bold text-blue-900">💊 الأدوية المعطاة</label><button type="button" onclick="addMedRow()" class="btn bg-blue-600 text-white !py-1">+ دواء</button></div>
+        <div id="medRows" class="space-y-1.5"></div>
+        <datalist id="medNames"></datalist>
+      </div>
+
+      <div class="p-2.5 bg-earth-50 border border-earth-200 rounded-xl space-y-2">
+        <label class="text-xs font-bold text-earth-800 block">💰 المقابل المالي</label>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="text-[11px] font-bold text-gray-700 block mb-1" for="visExam">أتعاب الفحص (دج)</label><input id="visExam" type="number" min="0" value="0" oninput="calcVisitTotal()" class="w-full p-1.5 border border-gray-300 rounded-lg text-xs bg-white"></div>
+          <div><label class="text-[11px] font-bold text-gray-700 block mb-1" for="visMed">ثمن الأدوية (دج)</label><input id="visMed" type="number" min="0" value="0" oninput="calcVisitTotal()" class="w-full p-1.5 border border-gray-300 rounded-lg text-xs bg-white"></div>
+        </div>
+        <div id="visPaidWrap" class="grid grid-cols-2 gap-2">
+          <div><label class="text-[11px] font-bold text-gray-700 block mb-1" for="visPaid">المدفوع الآن (دج)</label><input id="visPaid" type="number" min="0" value="0" oninput="calcVisitTotal()" class="w-full p-1.5 border border-gray-300 rounded-lg text-xs bg-white"></div>
+          <div><label class="text-[11px] font-bold text-red-700 block mb-1">المتبقي (دين)</label><input id="visRemain" readonly value="0 دج" class="w-full p-1.5 border border-red-200 rounded-lg text-xs bg-red-50 font-bold text-red-700"></div>
+        </div>
+        <p id="visTotalLine" class="text-[11px] text-gray-600"></p>
+      </div>
+
+      <div class="p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">
+        <label class="text-xs font-bold text-amber-900 block">⏰ الموعد القادم (اختياري)</label>
+        <div class="grid grid-cols-2 gap-2">
+          <input id="visNextDate" type="date" class="w-full p-1.5 border border-amber-300 rounded-lg text-xs bg-white" aria-label="تاريخ الموعد">
+          <input id="visNextNote" class="w-full p-1.5 border border-amber-300 rounded-lg text-xs bg-white" placeholder="الغرض: جرعة ثانية، متابعة...">
+        </div>
+      </div>
+      <div><label class="lbl" for="visNotes">ملاحظات</label><input id="visNotes" class="inp" placeholder="توصيات الطبيب..."></div>
+      <button type="submit" class="w-full py-3 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl text-sm">💾 حفظ الزيارة</button>
+    </form>
+  </div>
+</div>
+
+<!-- الأطباء -->
+<div id="vetsModal" class="modal fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-3 overflow-y-auto" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl my-auto">
+    <div class="p-3.5 bg-earth-600 text-white flex items-center justify-between"><h3 class="font-bold text-sm">👨‍⚕️ الأطباء البياطرة</h3><button onclick="closeModal('vetsModal')" aria-label="إغلاق" class="px-2 py-1 rounded hover:bg-white/20 font-bold">✕</button></div>
+    <div class="p-4 space-y-3 max-h-[82vh] overflow-y-auto">
+      <form onsubmit="saveVet(event)" class="space-y-2 p-2.5 bg-gray-50 border rounded-xl">
+        <input type="hidden" id="vetId">
+        <p id="vetFormTitle" class="text-xs font-bold text-gray-800">إضافة طبيب</p>
+        <input id="vetNameIn" required class="inp" placeholder="اسم الطبيب (د. ...)">
+        <div class="grid grid-cols-2 gap-2">
+          <input id="vetPhoneIn" type="tel" class="inp" placeholder="رقم الهاتف">
+          <input id="vetPlaceIn" class="inp" placeholder="العيادة / المنطقة">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button class="btn bg-brand-700 text-white">💾 حفظ</button>
+          <button type="button" onclick="resetVetForm()" class="btn bg-gray-200 text-gray-700">جديد</button>
+        </div>
+      </form>
+      <div id="vetsList" class="space-y-2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- دفعة للبيطري -->
+<div id="vetPayModal" class="modal fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-4" onclick="if(event.target===this)closeModal(this.id)" role="dialog" aria-modal="true">
+  <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl">
+    <div class="p-3.5 bg-brand-800 text-white flex items-center justify-between"><h3 class="font-bold text-sm">💵 تسديد للبيطري</h3><button onclick="closeModal('vetPayModal')" aria-label="إغلاق" class="px-2 py-1 rounded hover:bg-white/20 font-bold">✕</button></div>
+    <form onsubmit="saveVetPay(event)" class="p-4 space-y-3">
+      <input type="hidden" id="vpId">
+      <div class="p-2.5 bg-gray-50 rounded-xl text-xs space-y-1"><p id="vpTitle" class="font-bold text-gray-800"></p><p id="vpDebt" class="text-red-600 font-bold"></p></div>
+      <div><label class="lbl" for="vpAmount">المبلغ المسدَّد (دج) *</label><input id="vpAmount" type="number" min="1" required class="inp font-bold"></div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="lbl" for="vpDate">التاريخ *</label><input id="vpDate" type="date" required class="inp"></div>
+        <div><label class="lbl" for="vpNote">ملاحظة</label><input id="vpNote" class="inp" placeholder="دفعة ثانية"></div>
+      </div>
+      <button class="w-full py-2.5 bg-brand-700 text-white font-bold rounded-xl text-sm">حفظ التسديد (يُسجَّل كمصروف)</button>
+    </form>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   مواشي الجزائر — النسخة الموحّدة (v4)
+   ===================================================================== */
+
+// ---------- أدوات عامة ----------
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const pad = n => String(n).padStart(2, '0');
+const localDate = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; // توقيت الجهاز وليس UTC
+const today = () => localDate();
+const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+const fmt = n => Math.round(num(n)).toLocaleString('en-US');
+const money = n => fmt(n) + ' دج';
+const d8 = s => (s ? String(s).split('-').reverse().join('/') : '—');
+const addDays = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return localDate(d); };
+const daysBetween = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
+const MONTHS = ['جانفي','فيفري','مارس','أفريل','ماي','جوان','جويلية','أوت','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+function ageText(birth) {
+  if (!birth) return '';
+  const days = daysBetween(birth, today());
+  if (days < 0) return '';
+  if (days < 30) return `${days} يوم`;
+  const months = Math.floor(days / 30.44);
+  if (months < 24) return `${months} شهر`;
+  const y = Math.floor(months / 12), m = months % 12;
+  return m ? `${y} سنة و${m} شهر` : `${y} سنة`;
+}
+
+// ---------- الثوابت ----------
+const GENDERS = { ewe: 'نعجة (أنثى)', lamb: 'خروف (ذكر)', ram: 'كبش فحل' };
+const HEALTH = { healthy: 'سليمة وممتازة', pregnant: 'حامل (عشار)', treating: 'تحت العلاج', vaccinated: 'ملقّحة حديثاً' };
+const HEALTH_CLS = { healthy: 'bg-emerald-100 text-emerald-800', pregnant: 'bg-pink-100 text-pink-800', treating: 'bg-red-100 text-red-800', vaccinated: 'bg-blue-100 text-blue-800' };
+const STATUS = { present: 'في القطيع', forSale: 'معروضة للبيع', sold: 'مباعة', dead: 'نافقة' };
+const STATUS_CLS = { present: 'bg-emerald-100 text-emerald-800', forSale: 'bg-amber-100 text-amber-800', sold: 'bg-gray-200 text-gray-700', dead: 'bg-gray-800 text-white' };
+const EVENT_TYPES = { vaccine: '💉 تلقيح', treatment: '🩺 علاج', lambing: '🍼 ولادة', weight: '⚖️ وزن', note: '📝 ملاحظة' };
+const EXPENSE_CATS = ['أعلاف (شعير / نخالة)', 'تبن وقرط', 'بيطري وأدوية', 'أجور العمال والرعاة', 'شراء مواشي', 'نقل ومصاريف أخرى'];
+const INCOME_CATS = ['بيع صوف / حليب', 'مداخيل أخرى'];
+const GESTATION_DAYS = 150;
+const DEFAULT_BREEDS = ['أولاد جلال', 'الحمراء (الدغمة)', 'الرمبي', 'الدمان', 'التارقية', 'السردي', 'مهجنة'];
+
+// ---------- قاعدة البيانات المحلية ----------
+const DB_KEY = 'mawashi_dz_v4';
+function defaultDB() {
+  return {
+    v: 4,
+    settings: { farm: '', phone: '', place: '', wage: 2000, lastBackup: '' },
+    breeds: [...DEFAULT_BREEDS],
+    sheep: [], sales: [], finance: [], grazing: [], counts: [], vets: [], vetVisits: []
+  };
+}
+function normalize(d) {
+  const base = defaultDB();
+  const o = Object.assign(base, d || {});
+  o.settings = Object.assign(base.settings, (d && d.settings) || {});
+  ['breeds', 'sheep', 'sales', 'finance', 'grazing', 'counts', 'vets', 'vetVisits'].forEach(k => { if (!Array.isArray(o[k])) o[k] = base[k]; });
+  if (!o.breeds.length) o.breeds = [...DEFAULT_BREEDS];
+  o.sheep.forEach(s => { if (!Array.isArray(s.events)) s.events = []; });
+  o.sales.forEach(s => { if (!Array.isArray(s.payments)) s.payments = []; });
+  o.vetVisits.forEach(v => { if (!Array.isArray(v.payments)) v.payments = []; if (!Array.isArray(v.medicines)) v.medicines = []; if (!Array.isArray(v.sheepIds)) v.sheepIds = []; });
+  return o;
+}
+function loadDB() {
+  let raw = null;
+  try {
+    raw = localStorage.getItem(DB_KEY);
+    return raw ? normalize(JSON.parse(raw)) : defaultDB();
+  } catch (e) {
+    console.error('تعذر قراءة البيانات', e);
+    try { if (raw) localStorage.setItem(DB_KEY + '_corrupt_' + Date.now(), raw); } catch (_) {}
+    setTimeout(() => toast('تعذر قراءة البيانات المحفوظة. حُفظت نسخة تالفة جانباً، يمكنك الاستيراد من نسخة احتياطية.', 'error'), 500);
+    return defaultDB();
+  }
+}
+let db = loadDB();
+function saveDB() {
+  try { localStorage.setItem(DB_KEY, JSON.stringify(db)); return true; }
+  catch (e) {
+    console.error(e);
+    toast('⚠️ تعذّر الحفظ: ذاكرة الجهاز ممتلئة. صدّر نسخة احتياطية واحذف بيانات قديمة.', 'error');
+    return false;
+  }
+}
+
+// ---------- الصور (IndexedDB مع بديل احتياطي) ----------
+const Photos = (() => {
+  let dbp = null; const cache = new Map();
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    if (!window.indexedDB) return rej(new Error('no idb'));
+    const r = indexedDB.open('mawashi_photos', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('p');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  }));
+  async function put(id, data) {
+    const d = await open();
+    await new Promise((res, rej) => { const t = d.transaction('p', 'readwrite'); t.objectStore('p').put(data, id); t.oncomplete = res; t.onerror = () => rej(t.error); });
+    cache.set(id, data);
+  }
+  async function get(id) {
+    if (!id) return '';
+    if (cache.has(id)) return cache.get(id);
+    try {
+      const d = await open();
+      const v = await new Promise((res, rej) => { const r = d.transaction('p').objectStore('p').get(id); r.onsuccess = () => res(r.result || ''); r.onerror = () => rej(r.error); });
+      if (v) cache.set(id, v);
+      return v;
+    } catch (_) { return ''; }
+  }
+  async function del(id) {
+    cache.delete(id);
+    try { const d = await open(); d.transaction('p', 'readwrite').objectStore('p').delete(id); } catch (_) {}
+  }
+  async function clear() { cache.clear(); try { const d = await open(); d.transaction('p', 'readwrite').objectStore('p').clear(); } catch (_) {} }
+  return { put, get, del, clear };
+})();
+const sheepPhoto = async s => s.photoData || (s.photo ? await Photos.get(s.photo) : '');
+function hydratePhotos(root) {
+  root.querySelectorAll('img[data-pid]').forEach(async img => {
+    const d = await Photos.get(img.dataset.pid);
+    if (d) img.src = d;
+  });
+}
+function resizeImage(file, max = 900, q = 0.72) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', q));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('bad image')); };
+    img.src = url;
+  });
+}
+
+// ---------- واجهة عامة ----------
+function toast(msg, type = 'info') {
+  const colors = { success: 'bg-brand-800 border-brand-600', error: 'bg-red-700 border-red-500', info: 'bg-gray-900 border-gray-700' };
+  const t = document.createElement('div');
+  t.className = `${colors[type] || colors.info} text-white border px-4 py-2.5 rounded-xl shadow-lg text-xs font-bold text-center transition-opacity duration-300`;
+  t.textContent = msg;
+  $('toastBox').appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, type === 'error' ? 5000 : 2800);
+}
+function openModal(id) {
+  const m = $(id); m.classList.remove('hidden'); m.classList.add('flex');
+  document.body.classList.add('overflow-hidden');
+}
+function closeModal(id) {
+  const m = $(id); m.classList.add('hidden'); m.classList.remove('flex');
+  if (!document.querySelector('.modal.flex')) document.body.classList.remove('overflow-hidden');
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const open = [...document.querySelectorAll('.modal.flex')].pop();
+  if (open) closeModal(open.id);
+});
+const empty = txt => `<div class="card p-6 text-center text-xs text-gray-400">${txt}</div>`;
+const setActiveSeg = (prefix, key) => document.querySelectorAll(`[id^="${prefix}-"]`).forEach(b => b.classList.toggle('on', b.id === `${prefix}-${key}`));
+
+// ---------- حسابات مشتركة ----------
+const isActive = s => s.status === 'present' || s.status === 'forSale';
+const activeCount = () => db.sheep.filter(isActive).length;
+const paidOf = s => (s.payments || []).reduce((a, p) => a + num(p.amount), 0);
+const remOf = s => Math.max(0, num(s.total) - paidOf(s));
+const expectedLambing = s => (s.breedingDate ? addDays(s.breedingDate, GESTATION_DAYS) : '');
+function waNumber(phone) {
+  let d = String(phone || '').replace(/\D/g, '');
+  if (!d) return '';
+  if (d.startsWith('00')) d = d.slice(2);
+  else if (d.startsWith('0')) d = '213' + d.slice(1);
+  return d;
+}
+const waLink = (phone, text) => `https://wa.me/${waNumber(phone)}?text=${encodeURIComponent(text)}`;
+const farmName = () => db.settings.farm || 'مواشي الجزائر';
+
+// ---------- التنقل ----------
+let currentTab = 'home';
+function switchTab(name) {
+  currentTab = name;
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id === 'tab-' + name));
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    const on = b.dataset.tab === name;
+    b.classList.toggle('text-brand-700', on); b.classList.toggle('font-bold', on);
+    b.classList.toggle('text-gray-500', !on);
+    b.setAttribute('aria-current', on ? 'page' : 'false');
+  });
+  if (name !== 'camera') Cam.stopAll();
+  ({ home: renderHome, herd: renderHerd, sales: renderSales, camera: renderCountLogs, finance: renderFinance, vet: renderVet, grazing: renderGrazing }[name])();
+  window.scrollTo({ top: 0 });
+}
+function renderHeader() {
+  $('headerCount').textContent = `${activeCount()} رأس`;
+  $('headerTitle').textContent = farmName();
+}
+function renderAll() { renderHeader(); syncBreedSelects(); ({ home: renderHome, herd: renderHerd, sales: renderSales, camera: renderCountLogs, finance: renderFinance, vet: renderVet, grazing: renderGrazing }[currentTab])(); }
+
+/* =====================================================================
+   الرئيسية
+   ===================================================================== */
+function buildAlerts() {
+  const out = []; const t = today();
+  // 1) موعد استلام الزبائن
+  db.sales.filter(s => s.delivery === 'left').forEach(s => {
+    const late = s.pickupDate && s.pickupDate < t;
+    out.push({ pr: late ? 0 : 2, cls: late ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-900', icon: '📦',
+      text: `${esc(s.buyer || 'زبون')} سيأخذ «${esc(s.item)}»${s.pickupDate ? ` — الموعد ${d8(s.pickupDate)}${late ? ' (متأخر)' : ''}` : ''}`, go: "switchTab('sales')" });
+  });
+  // 2) الديون
+  const debtors = db.sales.filter(s => remOf(s) > 0);
+  if (debtors.length) {
+    const sum = debtors.reduce((a, s) => a + remOf(s), 0);
+    out.push({ pr: 1, cls: 'bg-red-50 border-red-200 text-red-800', icon: '💸', text: `ديون الزبائن: ${money(sum)} على ${debtors.length} عملية بيع`, go: "setSalesFilter('debt');switchTab('sales')" });
+  }
+  // 3) الولادات واللقاحات
+  db.sheep.filter(isActive).forEach(s => {
+    const exp = expectedLambing(s);
+    if (exp) {
+      const d = daysBetween(t, exp);
+      if (d <= 30 && d >= -20) out.push({ pr: d < 0 ? 0 : 3, cls: 'bg-pink-50 border-pink-200 text-pink-900', icon: '🍼',
+        text: `${esc(s.tag)}: ${d >= 0 ? `ولادة متوقعة بعد ${d} يوم (${d8(exp)})` : `تجاوزت موعد الولادة بـ ${-d} يوم`}`, go: `openDetail('${s.id}')` });
+    }
+    (s.events || []).forEach(ev => {
+      if (ev.nextDue && !ev.done) {
+        const d = daysBetween(t, ev.nextDue);
+        if (d <= 14) out.push({ pr: d < 0 ? 0 : 3, cls: d < 0 ? 'bg-red-50 border-red-200 text-red-800' : 'bg-blue-50 border-blue-200 text-blue-900', icon: '💉',
+          text: `${esc(s.tag)}: موعد ${esc(EVENT_TYPES[ev.type] || '')} ${d8(ev.nextDue)}${d < 0 ? ' (فات الموعد)' : ''}`, go: `openDetail('${s.id}')`, done: `markEventDone('${s.id}','${ev.id}')` });
+      }
+    });
+  });
+  // 3.5) البيطري: مواعيد وديون
+  db.vetVisits.forEach(v => {
+    if (v.nextDate && !v.nextDone) {
+      const d = daysBetween(t, v.nextDate);
+      if (d <= 7) out.push({ pr: d < 0 ? 0 : 2, cls: d < 0 ? 'bg-red-50 border-red-200 text-red-800' : 'bg-blue-50 border-blue-200 text-blue-900', icon: '🩺',
+        text: `موعد البيطري ${esc(vetName(v.vetId))} ${d8(v.nextDate)}${d === 0 ? ' (اليوم)' : d < 0 ? ' (فات الموعد)' : ` (بعد ${d} يوم)`}${v.nextNote ? ' — ' + esc(v.nextNote) : ''}`, go: "switchTab('vet')", done: `markVetNextDone('${v.id}')` });
+    }
+  });
+  const vetDebt = db.vetVisits.reduce((a, v) => a + visitRem(v), 0);
+  if (vetDebt > 0) out.push({ pr: 1, cls: 'bg-red-50 border-red-200 text-red-800', icon: '💉', text: `مستحقات للبيطري: ${money(vetDebt)}`, go: "setVetFilter('debt');switchTab('vet')" });
+  // 4) نسخة احتياطية
+  const hasData = db.sheep.length || db.sales.length || db.finance.length;
+  const lb = db.settings.lastBackup;
+  if (hasData && (!lb || daysBetween(lb, t) > 14)) out.push({ pr: 4, cls: 'bg-gray-50 border-gray-200 text-gray-700', icon: '💾', text: lb ? `آخر نسخة احتياطية قبل ${daysBetween(lb, t)} يوماً — احفظ نسخة جديدة` : 'لم تحفظ نسخة احتياطية بعد — احفظ نسخة حتى لا تضيع بياناتك', go: 'openSettings()' });
+  return out.sort((a, b) => a.pr - b.pr);
+}
+function renderHome() {
+  const t = today(), month = t.slice(0, 7);
+  const active = db.sheep.filter(isActive);
+  const forSale = db.sheep.filter(s => s.status === 'forSale').length;
+  const debt = db.sales.reduce((a, s) => a + remOf(s), 0);
+  const entries = financeEntries().filter(e => e.date.startsWith(month));
+  const inc = entries.filter(e => e.type === 'income').reduce((a, e) => a + num(e.amount), 0);
+  const exp = entries.filter(e => e.type === 'expense').reduce((a, e) => a + num(e.amount), 0);
+  const lastCount = db.counts[0];
+  const card = (label, val, cls, sub = '') => `<div class="card p-3"><span class="text-[11px] text-gray-500 block">${label}</span><span class="text-xl font-extrabold ${cls}">${val}</span>${sub ? `<span class="text-[10px] text-gray-400 block">${sub}</span>` : ''}</div>`;
+  $('homeStats').innerHTML =
+    card('القطيع الحالي', `${active.length} رأس`, 'text-brand-800', `${active.filter(s => s.gender === 'ewe').length} نعجة • ${active.filter(s => s.gender !== 'ewe').length} ذكر`) +
+    card('معروضة للبيع', `${forSale} رأس`, 'text-earth-600') +
+    card('ديون الزبائن', money(debt), debt ? 'text-red-600' : 'text-gray-800') +
+    card(`صافي ${MONTHS[new Date().getMonth()]}`, money(inc - exp), inc - exp >= 0 ? 'text-brand-700' : 'text-red-600', `مقبوض ${fmt(inc)} • مصروف ${fmt(exp)}`) +
+    (lastCount ? `<div class="card p-3 col-span-2 flex items-center justify-between"><div><span class="text-[11px] text-gray-500 block">آخر جرد بالعدّ (${esc(new Date(lastCount.at).toLocaleDateString('en-GB'))})</span><span class="text-lg font-extrabold text-indigo-700">${lastCount.count} رأس</span></div>${diffChip(lastCount.count, active.length)}</div>` : '');
+  const alerts = buildAlerts();
+  $('homeAlerts').innerHTML = alerts.length ? alerts.map(a => `
+    <div class="border ${a.cls} rounded-xl p-2.5 flex items-center justify-between gap-2">
+      <button onclick="${a.go}" class="flex-1 text-right"><span>${a.icon}</span> ${a.text}</button>
+      ${a.done ? `<button onclick="${a.done}" class="chip bg-white border border-current">تم ✓</button>` : ''}
+    </div>`).join('') : '<p class="text-gray-400 text-center py-2">لا توجد تنبيهات حالياً 👌</p>';
+}
+function diffChip(counted, registered) {
+  const d = counted - registered;
+  if (d === 0) return '<span class="chip bg-emerald-100 text-emerald-800">مطابق للمسجل ✅</span>';
+  return d < 0 ? `<span class="chip bg-red-100 text-red-700">ناقص ${-d} عن المسجل (${registered}) ⚠️</span>` : `<span class="chip bg-amber-100 text-amber-800">زائد ${d} عن المسجل (${registered})</span>`;
+}
+
+/* =====================================================================
+   السلالات
+   ===================================================================== */
+function syncBreedSelects(selected) {
+  const f = $('filterBreed'), cur = f.value;
+  f.innerHTML = '<option value="all">كل السلالات</option>' + db.breeds.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('');
+  f.value = db.breeds.includes(cur) ? cur : 'all';
+  const sb = $('sheepBreed'), keep = selected || sb.value;
+  sb.innerHTML = db.breeds.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('');
+  if (keep && db.breeds.includes(keep)) sb.value = keep;
+}
+function openBreeds() { renderBreeds(); openModal('breedsModal'); }
+function renderBreeds() {
+  $('breedsList').innerHTML = db.breeds.map((b, i) => {
+    const used = db.sheep.filter(s => s.breed === b).length;
+    return `<div class="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border">
+      <input value="${esc(b)}" onchange="renameBreed(${i}, this.value, this)" class="flex-1 p-1.5 border border-gray-200 rounded-lg text-xs bg-white" aria-label="اسم السلالة">
+      <span class="text-[10px] text-gray-500 whitespace-nowrap">${used} رأس</span>
+      <button onclick="deleteBreed(${i})" aria-label="حذف السلالة" class="text-red-500 font-bold px-1.5">🗑️</button></div>`;
+  }).join('');
+}
+function addBreed(e) {
+  e.preventDefault();
+  const v = $('newBreed').value.trim();
+  if (!v) return;
+  if (db.breeds.includes(v)) return toast('هذه السلالة موجودة مسبقاً', 'error');
+  db.breeds.push(v); $('newBreed').value = '';
+  saveDB(); renderBreeds(); syncBreedSelects(v); toast('تمت إضافة السلالة', 'success');
+}
+function renameBreed(i, val, el) {
+  const old = db.breeds[i], nv = val.trim();
+  if (!nv || nv === old) { el.value = old; return; }
+  if (db.breeds.includes(nv)) { el.value = old; return toast('اسم مستعمل مسبقاً', 'error'); }
+  db.breeds[i] = nv;
+  db.sheep.forEach(s => { if (s.breed === old) s.breed = nv; });
+  saveDB(); syncBreedSelects(); renderHerd(); toast('تم تعديل السلالة وتحديث البطاقات', 'success');
+}
+function deleteBreed(i) {
+  const b = db.breeds[i], used = db.sheep.filter(s => s.breed === b).length;
+  if (db.breeds.length <= 1) return toast('يجب الإبقاء على سلالة واحدة على الأقل', 'error');
+  if (used) return toast(`لا يمكن حذف «${b}»: مستعملة في ${used} بطاقة. غيّر سلالة تلك البطاقات أولاً.`, 'error');
+  if (!confirm(`حذف سلالة «${b}»؟`)) return;
+  db.breeds.splice(i, 1); saveDB(); renderBreeds(); syncBreedSelects();
+}
+
+/* =====================================================================
+   القطيع
+   ===================================================================== */
+let tempPhoto = null;      // dataURL جديدة
+let photoRemoved = false;
+function nextTag() {
+  let max = 100;
+  db.sheep.forEach(s => { const m = String(s.tag).match(/(\d+)\s*$/); if (m) max = Math.max(max, Number(m[1])); });
+  return 'DZ-' + (max + 1);
+}
+function renderHerd() {
+  syncBreedSelects();
+  const q = $('herdSearch').value.trim().toLowerCase(), b = $('filterBreed').value, st = $('filterStatus').value, h = $('filterHealth').value;
+  const list = db.sheep.filter(s => {
+    if (q && !(String(s.tag).toLowerCase().includes(q) || (s.notes || '').toLowerCase().includes(q))) return false;
+    if (b !== 'all' && s.breed !== b) return false;
+    if (st === 'active' && !isActive(s)) return false;
+    if (st !== 'all' && st !== 'active' && s.status !== st) return false;
+    if (h !== 'all' && s.health !== h) return false;
+    return true;
+  });
+  $('herdBadge').textContent = list.length;
+  const act = db.sheep.filter(isActive);
+  $('herdSummary').innerHTML = [
+    ['نعاج', act.filter(s => s.gender === 'ewe').length, 'bg-pink-50 text-pink-800'],
+    ['خرفان', act.filter(s => s.gender === 'lamb').length, 'bg-blue-50 text-blue-800'],
+    ['كباش فحول', act.filter(s => s.gender === 'ram').length, 'bg-amber-50 text-amber-800'],
+    ['حوامل', act.filter(s => s.health === 'pregnant').length, 'bg-pink-100 text-pink-900']
+  ].map(([l, n, c]) => `<span class="chip ${c}">${l}: ${n}</span>`).join('');
+
+  if (!db.sheep.length) { $('herdList').innerHTML = empty('لا توجد بطاقات بعد. اضغط «+ إضافة رأس» للبدء، أو حمّل بيانات تجريبية من ⚙️ الإعدادات.'); return; }
+  if (!list.length) { $('herdList').innerHTML = empty('لا توجد بطاقات مطابقة للبحث.'); return; }
+  $('herdList').innerHTML = list.map(s => {
+    const exp = expectedLambing(s), mother = s.motherId && db.sheep.find(x => x.id === s.motherId);
+    const photo = s.photoData ? `<img src="${esc(s.photoData)}" alt="" class="w-full h-full object-cover">`
+      : s.photo ? `<img data-pid="${esc(s.photo)}" alt="" class="w-full h-full object-cover">` : '<span class="text-3xl">🐑</span>';
+    return `<div class="card p-3.5 flex gap-3">
+      <div class="w-20 h-20 rounded-xl bg-brand-50 flex-shrink-0 overflow-hidden flex items-center justify-center border">${photo}</div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between gap-1">
+          <h4 class="font-extrabold text-sm text-gray-900 truncate">${esc(s.tag)} • ${esc(s.breed)}</h4>
+          <span class="chip ${STATUS_CLS[s.status]}">${STATUS[s.status]}</span>
+        </div>
+        <p class="text-xs text-gray-500 mt-0.5">${GENDERS[s.gender] || ''}${s.birthDate ? ` • ${ageText(s.birthDate)}` : ''}${s.weight ? ` • ${s.weight} كغ` : ''}${s.price && s.status === 'forSale' ? ` • <b class="text-brand-700">${money(s.price)}</b>` : ''}</p>
+        <div class="flex flex-wrap gap-1 mt-1"><span class="chip ${HEALTH_CLS[s.health] || ''}">${HEALTH[s.health] || ''}</span>${exp ? `<span class="chip bg-pink-50 text-pink-800">🍼 ولادة ~ ${d8(exp)}</span>` : ''}${mother ? `<span class="chip bg-gray-100 text-gray-600">أمها: ${esc(mother.tag)}</span>` : ''}</div>
+        ${s.notes ? `<p class="text-[11px] text-gray-500 mt-1 truncate">${esc(s.notes)}</p>` : ''}
+        <div class="flex flex-wrap gap-1.5 mt-2.5 pt-2 border-t border-gray-100 text-[11px] font-bold">
+          <button onclick="openDetail('${s.id}')" class="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg">📋 السجل (${(s.events || []).length})</button>
+          ${s.status === 'forSale' || s.status === 'present' ? `<button onclick="generateSaleCard('${s.id}')" class="bg-brand-700 text-white px-2.5 py-1 rounded-lg">📤 بطاقة بيع</button>` : ''}
+          <button onclick="openSheepModal('${s.id}')" class="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-lg">✏️ تعديل</button>
+          <button onclick="deleteSheep('${s.id}')" class="text-red-500 px-1.5 py-1">حذف</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  hydratePhotos($('herdList'));
+}
+function showPreview(src) {
+  const img = $('sheepPreview'), ph = $('sheepPreviewEmpty');
+  if (src) { img.src = src; img.classList.remove('hidden'); ph.classList.add('hidden'); }
+  else { img.removeAttribute('src'); img.classList.add('hidden'); ph.classList.remove('hidden'); }
+}
+function toggleSheepPrice() { $('sheepPriceWrap').classList.toggle('hidden', $('sheepStatus').value !== 'forSale'); }
+function fillMotherSelect(selfId, selected) {
+  $('sheepMother').innerHTML = '<option value="">— غير محددة —</option>' + db.sheep.filter(s => s.gender === 'ewe' && s.id !== selfId)
+    .map(s => `<option value="${s.id}">${esc(s.tag)} (${esc(s.breed)})</option>`).join('');
+  $('sheepMother').value = selected || '';
+}
+async function openSheepModal(id = null, preset = {}) {
+  tempPhoto = null; photoRemoved = false;
+  $('photoCam').value = ''; $('photoFile').value = '';
+  const s = id ? db.sheep.find(x => x.id === id) : null;
+  $('sheepModalTitle').textContent = s ? 'تعديل البطاقة' : 'إضافة بطاقة جديدة';
+  syncBreedSelects(s ? s.breed : db.breeds[0]);
+  fillMotherSelect(s ? s.id : '', s ? s.motherId : preset.motherId);
+  $('sheepId').value = s ? s.id : '';
+  $('sheepTag').value = s ? s.tag : nextTag();
+  $('sheepGender').value = s ? s.gender : (preset.gender || 'ewe');
+  $('sheepWeight').value = s ? (s.weight || '') : '';
+  $('sheepHealth').value = s ? s.health : 'healthy';
+  $('sheepBirth').value = s ? (s.birthDate || '') : (preset.birthDate || '');
+  $('sheepBreeding').value = s ? (s.breedingDate || '') : '';
+  $('sheepStatus').value = s ? s.status : 'present';
+  $('sheepPrice').value = s ? (s.price || '') : '';
+  $('sheepNotes').value = s ? (s.notes || '') : '';
+  if (!s && preset.motherId) { const m = db.sheep.find(x => x.id === preset.motherId); if (m) $('sheepBreed').value = m.breed; }
+  toggleSheepPrice();
+  showPreview(s ? await sheepPhoto(s) : '');
+  openModal('sheepModal');
+}
+async function handlePhoto(e) {
+  const f = e.target.files[0]; if (!f) return;
+  try { tempPhoto = await resizeImage(f); photoRemoved = false; showPreview(tempPhoto); }
+  catch (_) { toast('تعذّر قراءة الصورة', 'error'); }
+  e.target.value = '';
+}
+function clearPhoto() { tempPhoto = null; photoRemoved = true; showPreview(''); }
+async function saveSheep(e) {
+  e.preventDefault();
+  const id = $('sheepId').value, tag = $('sheepTag').value.trim();
+  if (!tag) return toast('أدخل رقم الحلق أو الاسم', 'error');
+  if (db.sheep.some(s => s.id !== id && s.tag.toLowerCase() === tag.toLowerCase())) return toast(`رقم الحلق «${tag}» مستعمل لرأس آخر`, 'error');
+  const old = id ? db.sheep.find(x => x.id === id) : null;
+  const status = $('sheepStatus').value;
+  const rec = Object.assign({ events: [], saleId: '' }, old, {
+    id: old ? old.id : uid('s_'),
+    tag, breed: $('sheepBreed').value, gender: $('sheepGender').value,
+    weight: num($('sheepWeight').value), health: $('sheepHealth').value,
+    birthDate: $('sheepBirth').value, breedingDate: $('sheepBreeding').value,
+    motherId: $('sheepMother').value, notes: $('sheepNotes').value.trim(),
+    price: num($('sheepPrice').value)
+  });
+  if (old && old.status === 'sold') rec.status = 'sold';
+  else { rec.status = status; if (status === 'dead' && !rec.deadDate) rec.deadDate = today(); if (status !== 'dead') rec.deadDate = ''; }
+  // الصورة
+  if (photoRemoved && old) { if (old.photo) Photos.del(old.photo); rec.photo = ''; rec.photoData = ''; }
+  if (tempPhoto) {
+    const pid = rec.photo || uid('ph_');
+    try { await Photos.put(pid, tempPhoto); rec.photo = pid; rec.photoData = ''; }
+    catch (_) { rec.photoData = tempPhoto; rec.photo = ''; }
+  }
+  if (old) db.sheep[db.sheep.findIndex(x => x.id === id)] = rec; else db.sheep.unshift(rec);
+  if (!saveDB()) return;
+  closeModal('sheepModal'); renderAll();
+  if (!$('detailModal').classList.contains('hidden')) renderDetail();
+  toast('تم حفظ بطاقة الرأس', 'success');
+}
+function deleteSheep(id) {
+  const s = db.sheep.find(x => x.id === id); if (!s) return;
+  if (!confirm(`حذف بطاقة ${s.tag} نهائياً مع سجلها الصحي؟${s.saleId ? '\n(مرتبطة بعملية بيع، سيبقى سجل البيع)' : ''}`)) return;
+  if (s.photo) Photos.del(s.photo);
+  db.sheep = db.sheep.filter(x => x.id !== id);
+  db.sheep.forEach(x => { if (x.motherId === id) x.motherId = ''; });
+  db.sales.forEach(x => { if (x.sheepId === id) x.sheepId = ''; });
+  saveDB(); renderAll();
+}
+
+// ---- سجل الأحداث الصحية ----
+let detailId = null;
+function openDetail(id) { detailId = id; renderDetail(); openModal('detailModal'); }
+function renderDetail() {
+  const s = db.sheep.find(x => x.id === detailId); if (!s) return closeModal('detailModal');
+  $('detailTitle').textContent = `${s.tag} • ${s.breed}`;
+  const evs = [...(s.events || [])].sort((a, b) => b.date.localeCompare(a.date));
+  const ws = (s.events || []).filter(e => e.type === 'weight').sort((a, b) => a.date.localeCompare(b.date));
+  let adg = '';
+  if (ws.length >= 2) {
+    const dd = daysBetween(ws[0].date, ws[ws.length - 1].date);
+    if (dd > 0) adg = `<div class="bg-brand-50 border border-brand-200 rounded-xl p-2.5 text-brand-900">📈 الوزن من ${ws[0].value} إلى ${ws[ws.length - 1].value} كغ خلال ${dd} يوماً — متوسط الزيادة <b>${Math.round((ws[ws.length - 1].value - ws[0].value) / dd * 1000)} غ/يوم</b></div>`;
+  }
+  const exp = expectedLambing(s);
+  $('detailBody').innerHTML = `
+    <div class="flex flex-wrap gap-1.5"><span class="chip ${STATUS_CLS[s.status]}">${STATUS[s.status]}</span><span class="chip ${HEALTH_CLS[s.health]}">${HEALTH[s.health]}</span>
+      ${s.birthDate ? `<span class="chip bg-gray-100 text-gray-700">العمر: ${ageText(s.birthDate) || '—'}</span>` : ''}${s.weight ? `<span class="chip bg-gray-100 text-gray-700">${s.weight} كغ</span>` : ''}
+      ${exp ? `<span class="chip bg-pink-50 text-pink-800">🍼 الولادة المتوقعة ${d8(exp)}</span>` : ''}</div>
+    ${s.gender === 'ewe' ? `<button onclick="openSheepModal(null,{motherId:'${s.id}',birthDate:'${today()}'})" class="btn w-full bg-pink-50 text-pink-800 border border-pink-200">🍼 تسجيل مولود جديد لهذه النعجة</button>` : ''}
+    ${adg}
+    <form onsubmit="addEvent(event)" class="border rounded-xl p-3 space-y-2 bg-gray-50">
+      <h4 class="font-bold text-gray-800">➕ إضافة حدث</h4>
+      <div class="grid grid-cols-2 gap-2">
+        <select id="evType" onchange="onEvTypeChange()" class="inp">${Object.entries(EVENT_TYPES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+        <input id="evDate" type="date" required value="${today()}" class="inp" aria-label="التاريخ">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <input id="evValue" type="number" min="0" step="0.1" class="inp hidden" placeholder="">
+        <input id="evNote" class="inp col-span-2" placeholder="تفاصيل (اسم اللقاح/الدواء، ملاحظة...)">
+      </div>
+      <div id="evDueWrap" class="">
+        <label class="lbl">موعد الجرعة / المتابعة القادم (اختياري — يُذكّرك به في الرئيسية)</label>
+        <input id="evDue" type="date" class="inp">
+      </div>
+      <button class="btn w-full bg-brand-700 text-white">حفظ الحدث</button>
+    </form>
+    <h4 class="font-bold text-gray-800">الأحداث المسجلة</h4>
+    <div class="space-y-2">${evs.length ? evs.map(ev => `
+      <div class="flex items-start justify-between gap-2 bg-white border rounded-xl p-2.5">
+        <div><div class="font-bold">${EVENT_TYPES[ev.type] || ev.type} <span class="text-gray-400 font-normal">• ${d8(ev.date)}</span></div>
+          <div class="text-gray-600">${ev.type === 'weight' ? `${ev.value} كغ ` : ev.type === 'lambing' && ev.value ? `${ev.value} مولود ` : ''}${esc(ev.note || '')}</div>
+          ${ev.nextDue ? `<div class="text-[11px] ${ev.done ? 'text-emerald-600' : 'text-blue-700'}">⏰ القادم: ${d8(ev.nextDue)} ${ev.done ? '(تم ✓)' : ''}</div>` : ''}</div>
+        <button onclick="deleteEvent('${s.id}','${ev.id}')" aria-label="حذف الحدث" class="text-gray-400 hover:text-red-600">✕</button>
+      </div>`).join('') : '<p class="text-gray-400 text-center py-3">لا توجد أحداث بعد.</p>'}</div>`;
+  onEvTypeChange();
+}
+function onEvTypeChange() {
+  const t = $('evType').value, v = $('evValue');
+  v.classList.toggle('hidden', !(t === 'weight' || t === 'lambing'));
+  v.placeholder = t === 'weight' ? 'الوزن (كغ) *' : 'عدد المواليد';
+  $('evDueWrap').classList.toggle('hidden', !(t === 'vaccine' || t === 'treatment'));
+}
+function addEvent(e) {
+  e.preventDefault();
+  const s = db.sheep.find(x => x.id === detailId); if (!s) return;
+  const type = $('evType').value, date = $('evDate').value, value = num($('evValue').value);
+  if (type === 'weight' && value <= 0) return toast('أدخل الوزن بالكغ', 'error');
+  const ev = { id: uid('ev_'), type, date, note: $('evNote').value.trim(), value: (type === 'weight' || type === 'lambing') ? value : 0,
+    nextDue: (type === 'vaccine' || type === 'treatment') ? $('evDue').value : '', done: false };
+  s.events.push(ev);
+  if (type === 'weight') {
+    const latest = s.events.filter(x => x.type === 'weight').sort((a, b) => b.date.localeCompare(a.date))[0];
+    if (latest.id === ev.id) s.weight = value;
+  }
+  if (type === 'lambing') { s.health = 'healthy'; s.breedingDate = ''; }
+  if (type === 'vaccine') s.health = s.health === 'pregnant' ? 'pregnant' : 'vaccinated';
+  if (!saveDB()) return;
+  renderDetail(); renderAll(); toast('تم تسجيل الحدث', 'success');
+}
+function deleteEvent(sid, eid) {
+  if (!confirm('حذف هذا الحدث؟')) return;
+  const s = db.sheep.find(x => x.id === sid); if (!s) return;
+  s.events = s.events.filter(x => x.id !== eid); saveDB(); renderDetail(); renderAll();
+}
+function markEventDone(sid, eid) {
+  const ev = (db.sheep.find(x => x.id === sid) || { events: [] }).events.find(x => x.id === eid);
+  if (ev) { ev.done = true; saveDB(); renderHome(); toast('تم تأكيد الموعد', 'success'); }
+}
+
+/* =====================================================================
+   المبيعات والديون
+   ===================================================================== */
+let salesFilter = 'all';
+function setSalesFilter(f) { salesFilter = f; setActiveSeg('sf', f); renderSales(); }
+function renderSales() {
+  setActiveSeg('sf', salesFilter);
+  const tot = db.sales.reduce((a, s) => a + num(s.total), 0), paid = db.sales.reduce((a, s) => a + paidOf(s), 0);
+  $('salesTotal').textContent = money(tot); $('salesPaid').textContent = money(paid); $('salesDebt').textContent = money(tot - paid);
+  const t = today();
+  let list = db.sales;
+  if (salesFilter === 'debt') list = list.filter(s => remOf(s) > 0);
+  if (salesFilter === 'pickup') list = list.filter(s => s.delivery === 'left');
+  list = [...list].sort((a, b) => b.date.localeCompare(a.date));
+  if (!db.sales.length) { $('salesList').innerHTML = empty('لا توجد مبيعات مسجلة بعد.'); return; }
+  if (!list.length) { $('salesList').innerHTML = empty('لا توجد عمليات مطابقة.'); return; }
+  $('salesList').innerHTML = list.map(s => {
+    const rem = remOf(s), paidV = paidOf(s), pct = s.total ? Math.min(100, Math.round(paidV / s.total * 100)) : 0;
+    const late = s.delivery === 'left' && s.pickupDate && s.pickupDate < t;
+    const payTypeLbl = { cash: 'نقداً', credit: 'كريدي', installments: 'بالتقسيط' }[s.payType] || '';
+    return `<div class="card p-3.5 text-xs">
+      <div class="flex justify-between items-start gap-2 mb-1.5">
+        <div class="min-w-0"><h4 class="font-extrabold text-sm text-gray-900">${esc(s.item)}</h4>
+          <p class="text-gray-600">👤 <b>${esc(s.buyer || 'زبون غير مسمى')}</b>${s.phone ? ` • <a class="text-blue-600 underline" href="tel:${esc(s.phone)}">${esc(s.phone)}</a>` : ''} • 📅 ${d8(s.date)}</p></div>
+        <span class="chip ${s.delivery === 'taken' ? 'bg-emerald-100 text-emerald-800' : late ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}">${s.delivery === 'taken' ? 'تم التسليم' : `بانتظار الاستلام${s.pickupDate ? ' ' + d8(s.pickupDate) : ''}${late ? ' ⚠️' : ''}`}</span>
+      </div>
+      <div class="bg-gray-50 p-2.5 rounded-xl my-2 space-y-1.5">
+        <div class="flex justify-between"><span>الثمن: <b>${money(s.total)}</b></span><span>المدفوع: <b class="text-emerald-700">${money(paidV)}</b></span></div>
+        <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-full bg-emerald-500" style="width:${pct}%"></div></div>
+        <div class="font-bold ${rem > 0 ? 'text-red-600' : 'text-emerald-700'}">${rem > 0 ? `متبقي: ${money(rem)}` : 'خالص ✅'}</div>
+      </div>
+      <details class="mb-2"><summary class="text-blue-700 font-bold">🧾 الدفعات (${(s.payments || []).length}) ${payTypeLbl ? '• ' + payTypeLbl : ''}${s.installmentNote ? ' • ' + esc(s.installmentNote) : ''}</summary>
+        <div class="mt-1.5 space-y-1">${(s.payments || []).map(p => `<div class="flex justify-between items-center bg-white border rounded-lg px-2 py-1"><span>${d8(p.date)} — <b>${money(p.amount)}</b> ${esc(p.note || '')}</span><button onclick="deletePayment('${s.id}','${p.id}')" aria-label="حذف الدفعة" class="text-gray-400 hover:text-red-600">✕</button></div>`).join('') || '<p class="text-gray-400">لا توجد دفعات</p>'}</div></details>
+      <div class="flex flex-wrap gap-1.5 font-bold text-[11px]">
+        ${rem > 0 ? `<button onclick="openPayment('${s.id}')" class="bg-blue-600 text-white px-2.5 py-1 rounded-lg">+ دفعة</button>` : ''}
+        ${rem > 0 ? `<button onclick="remindDebt('${s.id}')" class="bg-green-600 text-white px-2.5 py-1 rounded-lg">💬 تذكير بالدين</button>` : ''}
+        ${s.delivery === 'left' ? `<button onclick="markDelivered('${s.id}')" class="bg-amber-600 text-white px-2.5 py-1 rounded-lg">تأكيد الاستلام</button>` : ''}
+        <button onclick="sendReceipt('${s.id}')" class="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-lg">🧾 وصل</button>
+        <button onclick="openSaleModal('${s.id}')" class="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-lg">✏️ تعديل</button>
+        <button onclick="deleteSale('${s.id}')" class="text-red-500 px-1.5 py-1">حذف</button>
+      </div></div>`;
+  }).join('');
+}
+const getRadio = name => document.querySelector(`input[name="${name}"]:checked`).value;
+const setRadio = (name, v) => { const r = document.querySelector(`input[name="${name}"][value="${v}"]`); if (r) r.checked = true; };
+function openSaleModal(id = null) {
+  const s = id ? db.sales.find(x => x.id === id) : null;
+  $('saleModalTitle').textContent = s ? '✏️ تعديل عملية بيع' : '🤝 تسجيل بيع نعجة / خروف';
+  $('saleId').value = s ? s.id : '';
+  const sel = $('saleSheep');
+  sel.innerHTML = '<option value="">✍️ وصف يدوي (غير مسجل في القطيع)</option>' +
+    db.sheep.filter(isActive).map(x => `<option value="${x.id}" data-price="${num(x.price)}">${esc(x.tag)} — ${esc(x.breed)} (${GENDERS[x.gender]}${x.price ? ' • ' + fmt(x.price) + ' دج' : ''})</option>`).join('');
+  $('saleItemWrap').classList.toggle('hidden', !!s);
+  $('saleCustom').value = ''; onSaleSheepChange();
+  $('saleTotal').value = s ? s.total : '';
+  $('saleDate').value = s ? s.date : today();
+  $('saleBuyer').value = s ? (s.buyer || '') : '';
+  $('salePhone').value = s ? (s.phone || '') : '';
+  setRadio('payType', s ? s.payType : 'cash');
+  setRadio('delivery', s ? s.delivery : 'taken');
+  $('salePickup').value = s ? (s.pickupDate || '') : '';
+  $('saleInstall').value = s ? (s.installmentNote || '') : '';
+  $('salePaid').value = 0;
+  $('payDetails').classList.toggle('hidden', !!s);
+  onPayTypeChange(); onDeliveryChange();
+  openModal('saleModal');
+}
+function onSaleSheepChange() {
+  const sel = $('saleSheep'), manual = !sel.value;
+  $('saleCustom').classList.toggle('hidden', !manual);
+  const p = sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].dataset.price;
+  if (!manual && num(p) > 0) { $('saleTotal').value = p; onPayTypeChange(); }
+}
+function onPayTypeChange(fromPaidInput) {
+  const type = getRadio('payType'), total = num($('saleTotal').value), paid = $('salePaid');
+  const editing = !!$('saleId').value;
+  if (!editing) {
+    if (type === 'cash') { paid.value = total; paid.disabled = true; }
+    else if (type === 'credit') { paid.value = 0; paid.disabled = true; }
+    else { paid.disabled = false; if (!fromPaidInput && num(paid.value) > total) paid.value = 0; }
+    if (num(paid.value) > total) paid.value = total;
+  }
+  $('installNoteWrap').classList.toggle('hidden', type !== 'installments');
+  const rem = Math.max(0, total - num(paid.value));
+  $('saleRemain').value = money(rem);
+}
+function onDeliveryChange() { $('pickupWrap').classList.toggle('hidden', getRadio('delivery') !== 'left'); }
+function saveSale(e) {
+  e.preventDefault();
+  const id = $('saleId').value, total = num($('saleTotal').value), date = $('saleDate').value || today();
+  if (total <= 0) return toast('أدخل ثمن بيع صحيح', 'error');
+  const payType = getRadio('payType'), delivery = getRadio('delivery');
+  const common = {
+    total, date, payType, delivery,
+    buyer: $('saleBuyer').value.trim(), phone: $('salePhone').value.trim(),
+    pickupDate: delivery === 'left' ? $('salePickup').value : '',
+    installmentNote: payType === 'installments' ? $('saleInstall').value.trim() : ''
+  };
+  if (id) {
+    const s = db.sales.find(x => x.id === id);
+    if (total < paidOf(s)) return toast(`الثمن أقل من المبلغ المدفوع فعلاً (${money(paidOf(s))})`, 'error');
+    Object.assign(s, common);
+  } else {
+    const sheepId = $('saleSheep').value, custom = $('saleCustom').value.trim();
+    if (!sheepId && !custom) return toast('اختر الرأس المباع أو اكتب وصفه', 'error');
+    const paid = payType === 'cash' ? total : payType === 'credit' ? 0 : Math.min(total, num($('salePaid').value));
+    const sale = Object.assign({ id: uid('sale_'), sheepId, item: custom, payments: [] }, common);
+    if (sheepId) {
+      const sh = db.sheep.find(x => x.id === sheepId);
+      if (sh) { sale.item = `${GENDERS[sh.gender].split(' ')[0]} ${sh.tag} (${sh.breed})`; sh.status = 'sold'; sh.saleId = sale.id; }
+    }
+    if (paid > 0) sale.payments.push({ id: uid('p_'), amount: paid, date, note: payType === 'cash' ? 'دفع نقداً' : 'دفعة عند البيع' });
+    db.sales.unshift(sale);
+  }
+  if (!saveDB()) return;
+  closeModal('saleModal'); renderAll(); toast('تم حفظ عملية البيع', 'success');
+}
+function deleteSale(id) {
+  const s = db.sales.find(x => x.id === id); if (!s) return;
+  if (!confirm(`حذف عملية بيع «${s.item}» وكل دفعاتها؟\nسيُسترجع الرأس إلى القطيع إن كان مسجلاً.`)) return;
+  const sh = s.sheepId && db.sheep.find(x => x.id === s.sheepId);
+  if (sh && sh.saleId === s.id) { sh.status = 'present'; sh.saleId = ''; }
+  db.sales = db.sales.filter(x => x.id !== id); saveDB(); renderAll();
+}
+function openPayment(id) {
+  const s = db.sales.find(x => x.id === id); if (!s) return;
+  $('paySaleId').value = id;
+  $('payTitle').textContent = `${s.item} — ${s.buyer || 'زبون'}`;
+  $('payDebt').textContent = `المتبقي: ${money(remOf(s))}`;
+  $('payAmount').value = remOf(s); $('payAmount').max = remOf(s);
+  $('payDate').value = today(); $('payNote').value = '';
+  openModal('payModal');
+}
+function savePayment(e) {
+  e.preventDefault();
+  const s = db.sales.find(x => x.id === $('paySaleId').value); if (!s) return;
+  const amt = num($('payAmount').value);
+  if (amt <= 0) return toast('أدخل مبلغاً صحيحاً', 'error');
+  if (amt > remOf(s)) return toast(`المبلغ أكبر من المتبقي (${money(remOf(s))})`, 'error');
+  s.payments.push({ id: uid('p_'), amount: amt, date: $('payDate').value || today(), note: $('payNote').value.trim() });
+  if (!saveDB()) return;
+  closeModal('payModal'); renderAll(); toast('تم تسجيل الدفعة', 'success');
+}
+function deletePayment(sid, pid) {
+  if (!confirm('حذف هذه الدفعة؟ سيزيد الدين بقيمتها.')) return;
+  const s = db.sales.find(x => x.id === sid); if (!s) return;
+  s.payments = s.payments.filter(p => p.id !== pid); saveDB(); renderAll();
+}
+function markDelivered(id) {
+  const s = db.sales.find(x => x.id === id); if (!s) return;
+  s.delivery = 'taken'; saveDB(); renderAll(); toast('تم تأكيد استلام الزبون', 'success');
+}
+function remindDebt(id) {
+  const s = db.sales.find(x => x.id === id); if (!s) return;
+  const msg = `السلام عليكم ${s.buyer || ''}،\nتذكير ودّي بخصوص «${s.item}»: المتبقي عليكم ${money(remOf(s))}.\nجزاكم الله خيراً — ${farmName()}${db.settings.phone ? ' ' + db.settings.phone : ''}`;
+  window.open(waLink(s.phone, msg), '_blank');
+}
+function sendReceipt(id) {
+  const s = db.sales.find(x => x.id === id); if (!s) return;
+  const msg = `🧾 *وصل بيع — ${farmName()}*\n• ${s.item}\n• التاريخ: ${d8(s.date)}\n• الثمن: ${money(s.total)}\n• المدفوع: ${money(paidOf(s))}\n• المتبقي: ${remOf(s) > 0 ? money(remOf(s)) : 'خالص ✅'}${s.delivery === 'left' ? `\n• الاستلام: ${s.pickupDate ? d8(s.pickupDate) : 'لاحقاً'}` : ''}`;
+  window.open(waLink(s.phone, msg), '_blank');
+}
+
+/* =====================================================================
+   بطاقة البيع (صورة للمشاركة)
+   ===================================================================== */
+let cardSheep = null;
+function rr(ctx, x, y, w, h, r) { // بديل roundRect للمتصفحات القديمة
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function loadImg(src) { return new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; }); }
+async function generateSaleCard(id) {
+  const s = db.sheep.find(x => x.id === id); if (!s) return;
+  cardSheep = s;
+  try { await Promise.all([document.fonts.load('bold 30px Cairo'), document.fonts.load('22px Cairo')]); } catch (_) {}
+  const c = $('shareCanvas'), x = c.getContext('2d');
+  x.direction = 'rtl'; x.textAlign = 'center';
+  x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+  x.fillStyle = '#065f46'; x.fillRect(0, 0, c.width, 100);
+  x.fillStyle = '#fff'; x.font = 'bold 32px Cairo, sans-serif';
+  x.fillText(`🐑 ${farmName()} | عرض بيع`, c.width / 2, 62);
+  // الصورة (قصّ cover دون تشويه)
+  const src = await sheepPhoto(s), img = src ? await loadImg(src) : null;
+  x.save(); rr(x, 50, 120, 500, 300, 18); x.clip();
+  if (img) {
+    const k = Math.max(500 / img.width, 300 / img.height), w = img.width * k, h = img.height * k;
+    x.drawImage(img, 50 + (500 - w) / 2, 120 + (300 - h) / 2, w, h);
+  } else { x.fillStyle = '#f3f4f6'; x.fillRect(50, 120, 500, 300); x.font = '110px Cairo, sans-serif'; x.fillStyle = '#000'; x.fillText('🐑', c.width / 2, 300); }
+  x.restore();
+  x.fillStyle = '#111827'; x.font = 'bold 30px Cairo, sans-serif';
+  x.fillText(`${GENDERS[s.gender]} — ${s.breed}`, c.width / 2, 470);
+  x.fillStyle = '#374151'; x.font = '22px Cairo, sans-serif';
+  const bits = [s.weight ? `الوزن: ${s.weight} كغ` : '', s.birthDate ? `العمر: ${ageText(s.birthDate)}` : ''].filter(Boolean).join('   •   ');
+  if (bits) x.fillText(bits, c.width / 2, 515);
+  x.fillText(`الحالة الصحية: ${HEALTH[s.health] || 'سليمة'}`, c.width / 2, 558);
+  x.fillStyle = '#ecfdf5'; rr(x, 50, 580, 500, 80, 14); x.fill(); x.strokeStyle = '#10b981'; x.lineWidth = 3; x.stroke();
+  x.fillStyle = '#065f46'; x.font = 'bold 34px Cairo, sans-serif';
+  x.fillText(`السعر: ${s.price ? money(s.price) : 'للتفاوض'}`, c.width / 2, 632);
+  x.fillStyle = '#065f46'; x.fillRect(0, 690, c.width, 60);
+  x.fillStyle = '#fff'; x.font = 'bold 22px Cairo, sans-serif';
+  const contact = [db.settings.phone ? `📞 ${db.settings.phone}` : '', db.settings.place ? `📍 ${db.settings.place}` : ''].filter(Boolean).join('    ');
+  x.fillText(contact || 'للتواصل: أضف رقمك من الإعدادات', c.width / 2, 728);
+  openModal('cardModal');
+}
+const cardText = s => `🐑 *عرض بيع — ${farmName()}*\n• ${GENDERS[s.gender]} — ${s.breed}\n${s.weight ? `• الوزن: ${s.weight} كغ\n` : ''}${s.birthDate ? `• العمر: ${ageText(s.birthDate)}\n` : ''}• الحالة الصحية: ${HEALTH[s.health] || 'سليمة'}\n• السعر: ${s.price ? money(s.price) : 'للتفاوض'}${db.settings.phone ? `\n📞 ${db.settings.phone}` : ''}${db.settings.place ? `\n📍 ${db.settings.place}` : ''}`;
+function cardBlob() { return new Promise(res => $('shareCanvas').toBlob(res, 'image/png')); }
+async function downloadCard() {
+  const b = await cardBlob(); if (!b) return;
+  const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `عرض_${cardSheep.tag}.png`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+async function shareCard() {
+  const b = await cardBlob(); if (!b) return;
+  const file = new File([b], `عرض_${cardSheep.tag}.png`, { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], text: cardText(cardSheep) }); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  toast('المشاركة المباشرة غير مدعومة هنا: تم تنزيل الصورة، أرسلها يدوياً', 'info'); downloadCard();
+}
+function shareCardText() { window.open(`https://wa.me/?text=${encodeURIComponent(cardText(cardSheep))}`, '_blank'); }
+
+/* =====================================================================
+   المالية
+   ===================================================================== */
+let finPeriod = 'month';
+function financeEntries() {
+  const out = db.finance.map(f => ({ ...f, src: 'manual' }));
+  db.sales.forEach(s => (s.payments || []).forEach(p => out.push({
+    id: p.id, type: 'income', category: 'مبيعات المواشي', amount: p.amount, date: p.date,
+    note: `${s.item}${s.buyer ? ' — ' + s.buyer : ''}${p.note ? ' (' + p.note + ')' : ''}`, src: 'sale'
+  })));
+  db.vetVisits.forEach(v => (v.payments || []).forEach(p => out.push({
+    id: p.id, type: 'expense', category: 'بيطري وأدوية', amount: p.amount, date: p.date,
+    note: `${vetName(v.vetId)} — ${v.reason || 'فحص'}${p.note ? ' (' + p.note + ')' : ''}`, src: 'vet'
+  })));
+  return out.sort((a, b) => b.date.localeCompare(a.date));
+}
+function setFinPeriod(p) {
+  finPeriod = p; setActiveSeg('fp', p);
+  if (p !== 'custom') { $('finFrom').value = ''; $('finTo').value = ''; }
+  renderFinance();
+}
+function renderFinance() {
+  setActiveSeg('fp', finPeriod);
+  const t = today(), month = t.slice(0, 7), from = $('finFrom').value, to = $('finTo').value;
+  const all = financeEntries();
+  const rows = all.filter(e => {
+    if (finPeriod === 'today') return e.date === t;
+    if (finPeriod === 'month') return e.date.startsWith(month);
+    if (finPeriod === 'custom') return (!from || e.date >= from) && (!to || e.date <= to);
+    return true;
+  });
+  let inc = 0, exp = 0; const cats = {};
+  rows.forEach(e => { if (e.type === 'income') inc += num(e.amount); else { exp += num(e.amount); cats[e.category] = (cats[e.category] || 0) + num(e.amount); } });
+  $('finIncome').textContent = money(inc); $('finExpense').textContent = money(exp);
+  const net = inc - exp, ne = $('finNet');
+  ne.textContent = (net > 0 ? '+' : '') + money(net);
+  ne.className = `text-xs font-extrabold ${net >= 0 ? 'text-brand-700' : 'text-red-700'}`;
+  $('finBreakdown').innerHTML = exp === 0 ? '<p class="text-gray-400 text-center">لا توجد مصاريف في هذه الفترة</p>' :
+    Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([c, v]) => { const p = Math.round(v / exp * 100); return `<div><div class="flex justify-between mb-1"><span class="font-semibold text-gray-700">${esc(c)}</span><span class="font-bold text-gray-600">${money(v)} (${p}%)</span></div><div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-earth-500 rounded-full" style="width:${p}%"></div></div></div>`; }).join('');
+  // رسم آخر 6 أشهر
+  const months = []; const base = new Date(); base.setDate(1);
+  for (let i = 5; i >= 0; i--) { const d = new Date(base); d.setMonth(d.getMonth() - i); months.push({ key: `${d.getFullYear()}-${pad(d.getMonth() + 1)}`, label: MONTHS[d.getMonth()], i: 0, e: 0 }); }
+  all.forEach(e => { const m = months.find(x => e.date.startsWith(x.key)); if (m) { if (e.type === 'income') m.i += num(e.amount); else m.e += num(e.amount); } });
+  const mx = Math.max(1, ...months.map(m => Math.max(m.i, m.e)));
+  $('finChart').innerHTML = months.map(m => `<div class="flex-1 flex flex-col items-center justify-end h-full gap-1" title="${m.label}: +${fmt(m.i)} / -${fmt(m.e)}">
+    <div class="flex items-end gap-0.5 w-full justify-center flex-1"><div class="w-1/3 bg-emerald-500 rounded-t" style="height:${Math.round(m.i / mx * 100)}%"></div><div class="w-1/3 bg-red-400 rounded-t" style="height:${Math.round(m.e / mx * 100)}%"></div></div>
+    <span class="text-[9px] text-gray-500">${m.label}</span></div>`).join('');
+  $('finList').innerHTML = rows.length ? rows.map(e => `<div class="p-3 flex items-center justify-between gap-2">
+    <div class="min-w-0"><p class="text-xs font-bold text-gray-800 truncate">${esc(e.note || e.category)}</p><span class="text-[11px] text-gray-500">${esc(e.category)} • ${d8(e.date)}${e.src === 'sale' ? ' • من المبيعات' : ''}${e.src === 'vet' ? ' • من سجل البيطري' : ''}${e.grazingId ? ' • من سجل الرعي' : ''}</span></div>
+    <div class="flex items-center gap-2"><span class="text-xs font-extrabold ${e.type === 'income' ? 'text-emerald-700' : 'text-red-600'}">${e.type === 'income' ? '+' : '-'}${money(e.amount)}</span>
+    ${e.src === 'manual' ? `<button onclick="deleteFinance('${e.id}')" aria-label="حذف" class="text-gray-400 hover:text-red-600 text-xs">✕</button>` : '<span class="w-3"></span>'}</div></div>`).join('')
+    : '<p class="text-xs text-gray-400 text-center py-4">لا توجد معاملات في هذه الفترة</p>';
+}
+function openFinanceModal() { setRadio('finType', 'expense'); updateFinCats(); $('finDate').value = today(); $('finAmount').value = ''; $('finNote').value = ''; openModal('finModal'); }
+function updateFinCats() { const l = getRadio('finType') === 'expense' ? EXPENSE_CATS : INCOME_CATS; $('finCat').innerHTML = l.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join(''); }
+function saveFinance(e) {
+  e.preventDefault();
+  const amount = num($('finAmount').value); if (amount <= 0) return toast('أدخل مبلغاً صحيحاً', 'error');
+  db.finance.unshift({ id: uid('f_'), type: getRadio('finType'), category: $('finCat').value, amount, date: $('finDate').value || today(), note: $('finNote').value.trim() });
+  if (!saveDB()) return;
+  closeModal('finModal'); renderAll(); toast('تم حفظ المعاملة', 'success');
+}
+function deleteFinance(id) { if (!confirm('حذف هذه المعاملة؟')) return; db.finance = db.finance.filter(f => f.id !== id); saveDB(); renderAll(); }
+
+/* =====================================================================
+   الرعي
+   ===================================================================== */
+function openGrazingModal() {
+  $('grazShepherd').value = ''; $('grazLoc').value = ''; $('grazNotes').value = '';
+  $('grazDate').value = today(); $('grazWage').value = db.settings.wage || '';
+  $('shepherdList').innerHTML = [...new Set(db.grazing.map(g => g.shepherd))].map(n => `<option value="${esc(n)}">`).join('');
+  openModal('grazModal');
+}
+function saveGrazing(e) {
+  e.preventDefault();
+  const wage = num($('grazWage').value), shepherd = $('grazShepherd').value.trim(), date = $('grazDate').value || today();
+  const rec = { id: uid('g_'), shepherd, date, wage, location: $('grazLoc').value.trim(), notes: $('grazNotes').value.trim() };
+  db.grazing.unshift(rec);
+  if (wage > 0 && $('grazExpense').checked) db.finance.unshift({ id: uid('f_'), type: 'expense', category: 'أجور العمال والرعاة', amount: wage, date, note: `أجرة رعي (${shepherd})`, grazingId: rec.id });
+  if (!saveDB()) return;
+  closeModal('grazModal'); renderAll(); toast('تم تسجيل يوم الرعي', 'success');
+}
+function deleteGrazing(id) {
+  const linked = db.finance.some(f => f.grazingId === id);
+  if (!confirm(`حذف سجل الرعي؟${linked ? '\nسيُحذف معه مصروف الأجرة المرتبط.' : ''}`)) return;
+  db.grazing = db.grazing.filter(g => g.id !== id); db.finance = db.finance.filter(f => f.grazingId !== id); saveDB(); renderAll();
+}
+function renderGrazing() {
+  $('grazDays').textContent = `${db.grazing.length} يوم`;
+  $('grazWages').textContent = money(db.grazing.reduce((a, g) => a + num(g.wage), 0));
+  const by = {};
+  db.grazing.forEach(g => { const b = by[g.shepherd] || (by[g.shepherd] = { d: 0, w: 0 }); b.d++; b.w += num(g.wage); });
+  const names = Object.keys(by);
+  const bx = $('grazByShepherd'); bx.classList.toggle('hidden', names.length < 1);
+  bx.innerHTML = '<h3 class="font-bold text-xs text-gray-700 mb-2">👷 ملخص كل راعٍ</h3>' + names.map(n => `<div class="flex justify-between text-xs py-1 border-b last:border-0"><span class="font-semibold">${esc(n)}</span><span class="text-gray-600">${by[n].d} يوم • <b>${money(by[n].w)}</b></span></div>`).join('');
+  $('grazList').innerHTML = db.grazing.length ? db.grazing.map(g => `<div class="card p-3.5 flex items-start justify-between">
+    <div class="space-y-1"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm text-gray-900">الراعي: ${esc(g.shepherd)}</span><span class="chip bg-earth-100 text-earth-800">${d8(g.date)}</span></div>
+      <p class="text-xs text-brand-700 font-semibold">📍 ${esc(g.location)}</p>${g.notes ? `<p class="text-xs text-gray-500">${esc(g.notes)}</p>` : ''}</div>
+    <div class="flex flex-col items-end gap-1.5"><span class="text-xs font-extrabold bg-gray-100 px-2.5 py-1 rounded-lg">${g.wage ? money(g.wage) : 'بدون أجرة'}</span><button onclick="deleteGrazing('${g.id}')" class="text-red-500 text-xs">🗑️ حذف</button></div></div>`).join('')
+    : empty('لا توجد سجلات رعي.');
+}
+
+/* =====================================================================
+   العدّ الذكي بالكاميرا
+   ===================================================================== */
+const Cam = {
+  mode: 'crowd', source: null, frozen: false, facing: 'environment', stream: null,
+  model: null, modelState: 'idle', raf: null, tracks: [], nextId: 1, markers: [], frozenCanvas: null,
+  offset: 0, inCount: 0, outCount: 0, thr: 0.4, busy: false, lastDetect: 0, count: 0,
+  stopAll() {
+    if (this.raf) cancelAnimationFrame(this.raf); this.raf = null;
+    if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
+    const v = $('camVideo'); if (v) { v.srcObject = null; v.classList.add('hidden'); }
+    this.source = null; this.frozen = false; this.frozenCanvas = null; this.markers = []; this.tracks = [];
+    this.busy = false; this.offset = 0; this.inCount = 0; this.outCount = 0; this.nextId = 1;
+    const cv = $('camCanvas'); if (cv) cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+    $('camPlaceholder').classList.remove('hidden'); $('liveBadge').classList.add('hidden'); $('snapBadge').classList.add('hidden');
+    camStatus('جاهز للتشغيل', 'amber'); updateCamButtons(); refreshCount();
+  }
+};
+function camStatus(txt, color = 'amber') {
+  const c = { amber: 'bg-amber-100 text-amber-800', green: 'bg-emerald-100 text-emerald-800', red: 'bg-red-100 text-red-800', indigo: 'bg-indigo-100 text-indigo-800' }[color];
+  const b = $('camStatus'); b.textContent = txt; b.className = `text-[11px] px-2.5 py-1 rounded-full font-bold ${c}`;
+}
+function updateCamButtons() {
+  const cb = $('camBtn'), nb = $('snapBtn');
+  cb.textContent = Cam.source === 'camera' ? '⏹️ إيقاف الكاميرا' : '📹 تشغيل الكاميرا';
+  cb.className = `btn text-white shadow-sm ${Cam.source === 'camera' ? 'bg-red-600' : 'bg-brand-700'}`;
+  nb.textContent = Cam.frozen ? '▶️ استئناف البث المباشر' : '📸 لقطة تصحيح باللمس (تجميد الشاشة)';
+  nb.className = `btn w-full text-white shadow-sm ${Cam.frozen ? 'bg-emerald-600' : 'bg-amber-600'}`;
+  nb.classList.toggle('opacity-50', Cam.mode === 'line');
+}
+function showCamError(msg) { const e = $('camError'); e.innerHTML = msg; e.classList.toggle('hidden', !msg); }
+const MODE_DESC = {
+  crowd: '<strong>وضع الحوش والتجمع:</strong> يعطي كل نعجة رقماً ثابتاً (#1، #2...) ويعدّ ما هو ظاهر في الشاشة. لقطة التصحيح تجمّد الصورة لتضيف أو تحذف نقاطاً باللمس.',
+  line: '<strong>وضع المرور (باب الزريبة):</strong> يرسم خطاً أحمر في المنتصف ويعدّ كل رأس يعبره مع التمييز بين الدخول والخروج.'
+};
+function setCountMode(m) {
+  if (Cam.frozen) unfreeze(true);
+  Cam.mode = m;
+  $('modeBtn-crowd').className = `py-2 px-2 rounded-lg text-xs ${m === 'crowd' ? 'font-extrabold bg-brand-700 text-white shadow-sm' : 'font-bold text-gray-700'}`;
+  $('modeBtn-line').className = `py-2 px-2 rounded-lg text-xs ${m === 'line' ? 'font-extrabold bg-brand-700 text-white shadow-sm' : 'font-bold text-gray-700'}`;
+  $('modeDesc').innerHTML = MODE_DESC[m];
+  Cam.tracks = []; Cam.nextId = 1; Cam.offset = 0; Cam.inCount = 0; Cam.outCount = 0;
+  updateCamButtons(); refreshCount();
+}
+function baseCount() {
+  if (Cam.frozen) return Cam.markers.length;
+  if (Cam.mode === 'line') return Cam.inCount + Cam.outCount;
+  return Cam.tracks.filter(t => t.hits >= 3).length;
+}
+function refreshCount() {
+  Cam.count = Math.max(0, baseCount() + Cam.offset);
+  $('countNum').textContent = Cam.count;
+  $('countLabel').textContent = Cam.mode === 'line' ? 'عدد الرؤوس التي عبرت الخط' : (Cam.frozen ? 'عدد النقاط في اللقطة' : 'عدد الرؤوس الظاهرة');
+  $('countSub').textContent = Cam.mode === 'line' ? `دخول: ${Cam.inCount} • خروج: ${Cam.outCount}${Cam.offset ? ` • تعديل يدوي: ${Cam.offset > 0 ? '+' : ''}${Cam.offset}` : ''}` : (Cam.offset ? `تعديل يدوي: ${Cam.offset > 0 ? '+' : ''}${Cam.offset}` : '');
+  const reg = activeCount();
+  $('regCompare').innerHTML = `<span class="text-gray-600">المسجل في القطيع: <b>${reg}</b> رأس</span>${Cam.count > 0 && Cam.mode === 'crowd' ? diffChip(Cam.count, reg) : ''}`;
+}
+function adjustCount(d) { Cam.offset += d; if (Cam.count + d < 0) Cam.offset -= d; refreshCount(); }
+function resetCounter() {
+  Cam.offset = 0; Cam.inCount = 0; Cam.outCount = 0; Cam.tracks = []; Cam.nextId = 1;
+  if (Cam.frozen) { Cam.markers = []; renderFrozen(); }
+  refreshCount();
+}
+// ---- المحرك ----
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('load ' + src)); document.head.appendChild(s); }); }
+async function loadModel() {
+  if (Cam.model) return Cam.model;
+  if (Cam.modelState === 'loading') return null;
+  Cam.modelState = 'loading';
+  try {
+    if (!window.cocoSsd) {
+      await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js');
+      await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
+    }
+    Cam.model = await window.cocoSsd.load(); Cam.modelState = 'ready';
+  } catch (e) { console.warn(e); Cam.modelState = 'failed'; }
+  return Cam.model;
+}
+async function startCamera() {
+  Cam.stopAll(); showCamError('');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { showCamError('<b>⚠️ الكاميرا غير متاحة:</b> المتصفح لا يدعمها أو الصفحة ليست عبر اتصال آمن (HTTPS).'); return; }
+  camStatus('جاري طلب إذن الكاميرا...', 'amber');
+  const v = $('camVideo'), cv = $('camCanvas');
+  try {
+    try { Cam.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: Cam.facing }, width: { ideal: 1280 } }, audio: false }); }
+    catch (_) { Cam.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); }
+    v.srcObject = Cam.stream; await v.play();
+    if (!v.videoWidth) await new Promise(r => { v.onloadedmetadata = r; });
+    cv.width = v.videoWidth; cv.height = v.videoHeight;
+    v.classList.remove('hidden'); $('camPlaceholder').classList.add('hidden'); $('liveBadge').classList.remove('hidden');
+    Cam.source = 'camera'; Cam.tracks = []; Cam.nextId = 1; Cam.offset = 0; Cam.inCount = 0; Cam.outCount = 0;
+    updateCamButtons(); refreshCount(); cameraLoop();
+    camStatus('جاري تحميل نموذج الكشف...', 'amber');
+    const m = await loadModel();
+    if (Cam.source !== 'camera') return;
+    if (m) camStatus(Cam.mode === 'crowd' ? 'تتبع الحوش نشط 🟢' : 'عدّ المرور نشط 🟢', 'green');
+    else { camStatus('الكشف الآلي غير متاح', 'red'); showCamError('تعذّر تحميل نموذج الذكاء الاصطناعي (يحتاج اتصالاً بالإنترنت في أول تشغيل). استعمل <b>لقطة التصحيح باللمس</b> أو الأزرار ±1.'); }
+  } catch (err) {
+    Cam.stopAll();
+    const msg = err && err.name === 'NotAllowedError' ? 'تم رفض إذن الكاميرا. فعّله من إعدادات المتصفح.' : (err && err.name === 'NotFoundError' ? 'لا توجد كاميرا في هذا الجهاز.' : (err && err.message) || 'خطأ غير معروف');
+    showCamError(`<b>⚠️ تعذّر تشغيل الكاميرا:</b> ${esc(msg)} — تأكد من منح إذن الكاميرا ثم أعد المحاولة.`);
+    camStatus('الكاميرا غير متاحة', 'red');
+  }
+}
+function toggleCamera() { if (Cam.source === 'camera') Cam.stopAll(); else startCamera(); }
+function switchFacing() {
+  Cam.facing = Cam.facing === 'environment' ? 'user' : 'environment';
+  toast(`العدسة ${Cam.facing === 'environment' ? 'الخلفية' : 'الأمامية'}`, 'info');
+  if (Cam.source === 'camera') startCamera();
+}
+function cameraLoop() {
+  if (Cam.source !== 'camera' || Cam.frozen) return;
+  const now = performance.now(), v = $('camVideo');
+  if (Cam.model && !Cam.busy && now - Cam.lastDetect > 150 && v.readyState >= 2) {
+    Cam.busy = true; Cam.lastDetect = now;
+    Cam.model.detect(v).then(p => { Cam.busy = false; if (Cam.source === 'camera' && !Cam.frozen) updateTracks(p); }).catch(() => { Cam.busy = false; });
+  }
+  drawOverlay();
+  Cam.raf = requestAnimationFrame(cameraLoop);
+}
+function updateTracks(preds) {
+  const cv = $('camCanvas');
+  const line = Cam.mode === 'line';
+  const dets = preds.filter(p => p.class === 'sheep' && p.score >= Cam.thr).map(p => {
+    const [x, y, w, h] = p.bbox, diag = Math.hypot(w, h);
+    // في وضع المرور تتحرك الأغنام أسرع بين الإطارات فنوسّع نطاق المطابقة
+    return { cx: x + w / 2, cy: y + h / 2, bbox: p.bbox, md: line ? Math.max(60, diag * 1.1) : Math.max(40, diag * 0.6) };
+  });
+  // مطابقة الأقرب أولاً مع توقّع الموضع التالي بالسرعة السابقة
+  const pairs = [];
+  Cam.tracks.forEach((t, ti) => dets.forEach((d, di) => { const dist = Math.hypot(t.x + t.vx - d.cx, t.y + t.vy - d.cy); if (dist < d.md) pairs.push([dist, ti, di]); }));
+  pairs.sort((a, b) => a[0] - b[0]);
+  const usedT = new Set(), usedD = new Set(), lineX = cv.width / 2;
+  pairs.forEach(([, ti, di]) => {
+    if (usedT.has(ti) || usedD.has(di)) return; usedT.add(ti); usedD.add(di);
+    const t = Cam.tracks[ti], d = dets[di];
+    if (Cam.mode === 'line' && !t.counted && t.hits >= 2) {
+      if (t.x < lineX && d.cx >= lineX) { t.counted = true; Cam.inCount++; }
+      else if (t.x > lineX && d.cx <= lineX) { t.counted = true; Cam.outCount++; }
+    }
+    t.vx = 0.5 * t.vx + 0.5 * (d.cx - t.x); t.vy = 0.5 * t.vy + 0.5 * (d.cy - t.y);
+    t.x = d.cx; t.y = d.cy; t.bbox = d.bbox; t.hits++; t.miss = 0;
+  });
+  const maxMiss = Cam.mode === 'crowd' ? 15 : 8;
+  Cam.tracks.forEach((t, i) => { if (!usedT.has(i)) t.miss++; });
+  Cam.tracks = Cam.tracks.filter(t => t.miss <= maxMiss);
+  dets.forEach((d, i) => { if (!usedD.has(i)) Cam.tracks.push({ id: Cam.nextId++, x: d.cx, y: d.cy, vx: 0, vy: 0, bbox: d.bbox, hits: 1, miss: 0, counted: false }); });
+  refreshCount();
+}
+function badge(ctx, x, y, text, fill, r) {
+  ctx.fillStyle = fill; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, r / 7); ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.round(r * 0.85)}px Cairo, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y + 1); ctx.textBaseline = 'alphabetic';
+}
+const badgeR = cv => Math.max(12, Math.round(cv.width / 50));
+function drawLine(ctx, cv) {
+  const x = cv.width / 2, r = badgeR(cv);
+  ctx.save(); ctx.strokeStyle = '#ef4444'; ctx.lineWidth = Math.max(3, r / 4); ctx.setLineDash([r, r * 0.6]);
+  ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cv.height); ctx.stroke(); ctx.restore();
+  ctx.fillStyle = 'rgba(220,38,38,.92)'; ctx.font = `bold ${Math.round(r * 0.9)}px Cairo, sans-serif`; ctx.textAlign = 'center';
+  ctx.fillText('خط العبور', x, r * 1.6);
+}
+function drawOverlay() {
+  const cv = $('camCanvas'), ctx = cv.getContext('2d'), r = badgeR(cv);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (Cam.mode === 'line') drawLine(ctx, cv);
+  Cam.tracks.forEach(t => {
+    if (t.miss > 0) return;
+    const [x, y, w, h] = t.bbox, conf = t.hits >= 3;
+    if (Cam.mode === 'crowd') {
+      ctx.strokeStyle = conf ? 'rgba(16,185,129,.9)' : 'rgba(156,163,175,.7)'; ctx.lineWidth = conf ? 3 : 1.5; ctx.strokeRect(x, y, w, h);
+      if (conf) badge(ctx, t.x, t.y, '#' + t.id, '#059669', r);
+    } else {
+      ctx.strokeStyle = t.counted ? '#3b82f6' : '#10b981'; ctx.lineWidth = 3; ctx.strokeRect(x, y, w, h);
+      if (t.counted) badge(ctx, t.x, t.y, '✓', '#2563eb', r);
+    }
+  });
+}
+// ---- لقطة التصحيح باللمس ----
+function toggleSnapshot() {
+  if (Cam.frozen) return unfreeze();
+  if (Cam.mode === 'line') return toast('لقطة التصحيح متاحة في وضع الحوش فقط', 'info');
+  if (Cam.source !== 'camera') return toast('شغّل الكاميرا أولاً', 'error');
+  const cv = $('camCanvas'), fc = document.createElement('canvas'); fc.width = cv.width; fc.height = cv.height;
+  const fx = fc.getContext('2d');
+  fx.drawImage($('camVideo'), 0, 0, fc.width, fc.height);
+  Cam.markers = Cam.tracks.filter(t => t.hits >= 3 && t.miss === 0).map(t => ({ x: t.x, y: t.y }));
+  Cam.frozenCanvas = fc; Cam.frozen = true; Cam.offset = 0;
+  if (Cam.raf) cancelAnimationFrame(Cam.raf); Cam.raf = null;
+  $('snapBadge').classList.remove('hidden'); updateCamButtons(); renderFrozen(); refreshCount();
+  toast('تم التجميد: المس نعجة لإضافتها أو نقطة لحذفها', 'info');
+}
+function unfreeze(silent) {
+  Cam.frozen = false; Cam.frozenCanvas = null; Cam.markers = []; Cam.offset = 0;
+  $('snapBadge').classList.add('hidden'); updateCamButtons();
+  if (Cam.source === 'camera') cameraLoop();
+  else { const cv = $('camCanvas'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); }
+  refreshCount();
+}
+function renderFrozen() {
+  if (!Cam.frozen || !Cam.frozenCanvas) return;
+  const cv = $('camCanvas'), ctx = cv.getContext('2d'), r = badgeR(cv);
+  ctx.clearRect(0, 0, cv.width, cv.height); ctx.drawImage(Cam.frozenCanvas, 0, 0);
+  Cam.markers.forEach((p, i) => badge(ctx, p.x, p.y, String(i + 1), '#d97706', r + 2));
+}
+function canvasPoint(e) {
+  const cv = $('camCanvas'), r = cv.getBoundingClientRect();
+  const k = Math.min(r.width / cv.width, r.height / cv.height), w = cv.width * k, h = cv.height * k;
+  const ox = (r.width - w) / 2, oy = (r.height - h) / 2;
+  const x = (e.clientX - r.left - ox) / k, y = (e.clientY - r.top - oy) / k;
+  return (x < 0 || y < 0 || x > cv.width || y > cv.height) ? null : { x, y };
+}
+$('camCanvas').addEventListener('click', e => {
+  if (!Cam.frozen) return;
+  const p = canvasPoint(e); if (!p) return;
+  const reach = badgeR($('camCanvas')) * 1.8;
+  const i = Cam.markers.findIndex(m => Math.hypot(m.x - p.x, m.y - p.y) < reach);
+  if (i !== -1) Cam.markers.splice(i, 1); else Cam.markers.push(p);
+  renderFrozen(); refreshCount();
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden && Cam.source === 'camera') Cam.stopAll(); });
+// ---- حفظ الجرد وسجله ----
+function saveCount() {
+  if (Cam.count <= 0) return toast('العدد صفر! ابدأ العدّ أولاً', 'error');
+  const source = Cam.frozen || Cam.offset ? 'manual' : (Cam.source === 'camera' ? 'ai' : 'manual');
+  const reg = activeCount();
+  db.counts.unshift({ id: uid('c_'), at: new Date().toISOString(), count: Cam.count, mode: Cam.mode, source, registered: reg });
+  if (db.counts.length > 200) db.counts.length = 200;
+  if (!saveDB()) return;
+  renderCountLogs();
+  { const d = Cam.count - reg; toast(d === 0 ? `✅ الجرد ${Cam.count} رأس — مطابق للمسجل` : `الجرد ${Cam.count} رأس — ${d < 0 ? 'ناقص ' + (-d) : 'زائد ' + d} عن المسجل (${reg})`, d === 0 ? 'success' : 'info'); }
+  if (Cam.frozen) unfreeze(); resetCounter();
+}
+function renderCountLogs() {
+  refreshCount();
+  const SRC = { ai: ['عدّ ذكي', 'bg-brand-100 text-brand-800'], manual: ['لقطة/يدوي', 'bg-blue-100 text-blue-800'] };
+  $('countLogs').innerHTML = db.counts.length ? db.counts.slice(0, 10).map(c => {
+    const d = new Date(c.at), s = SRC[c.source] || SRC.manual;
+    return `<div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl gap-2 ">
+      <div><strong class="text-gray-800">${c.count} رأس</strong> <span class="text-[11px] text-gray-500">(${c.mode === 'crowd' ? 'تجمع الحوش' : 'مرور صف'})</span>
+        <span class="text-[11px] text-gray-500 block">${d.toLocaleDateString('en-GB')} ${pad(d.getHours())}:${pad(d.getMinutes())}</span>
+        ${c.mode === 'crowd' ? `<div class="mt-1">${diffChip(c.count, c.registered)}</div>` : ''}</div>
+      <div class="flex flex-col items-end gap-1"><span class="chip ${s[1]}">${s[0]}</span><button onclick="deleteCount('${c.id}')" class="text-red-500 text-[11px]">حذف</button></div></div>`;
+  }).join('') : '<p class="text-gray-400 text-center">لا توجد سجلات</p>';
+}
+function deleteCount(id) { db.counts = db.counts.filter(c => c.id !== id); saveDB(); renderCountLogs(); }
+
+/* =====================================================================
+   البيطري
+   ===================================================================== */
+let vetFilter = 'all';
+const vetName = id => (db.vets.find(v => v.id === id) || {}).name || 'طبيب غير محدد';
+const visitTotal = v => num(v.examFee) + num(v.medCost);
+const visitPaid = v => (v.payments || []).reduce((a, p) => a + num(p.amount), 0);
+const visitRem = v => Math.max(0, visitTotal(v) - visitPaid(v));
+function visitAnimalsText(v) {
+  if (v.all) return 'القطيع كله';
+  return (v.sheepIds || []).map(id => (db.sheep.find(s => s.id === id) || {}).tag).filter(Boolean).join('، ');
+}
+function callButtons(phone) {
+  if (!phone) return '<span class="text-[11px] text-gray-400">لا يوجد رقم</span>';
+  return `<a href="tel:${esc(phone)}" class="inline-flex items-center gap-1 bg-emerald-600 text-white font-bold text-[11px] px-2.5 py-1 rounded-lg">📞 اتصال</a>
+          <a href="${waLink(phone, '')}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 bg-green-500 text-white font-bold text-[11px] px-2.5 py-1 rounded-lg">💬 واتساب</a>`;
+}
+function setVetFilter(f) { vetFilter = f; setActiveSeg('vf', f); renderVet(); }
+function renderVet() {
+  setActiveSeg('vf', vetFilter);
+  const t = today(), V = db.vetVisits;
+  const tot = V.reduce((a, v) => a + visitTotal(v), 0), paid = V.reduce((a, v) => a + visitPaid(v), 0);
+  $('vetTotal').textContent = money(tot); $('vetPaid').textContent = money(paid); $('vetDebt').textContent = money(tot - paid);
+  // المواعيد القادمة
+  const up = V.filter(v => v.nextDate && !v.nextDone).sort((a, b) => a.nextDate.localeCompare(b.nextDate));
+  $('vetUpcoming').innerHTML = up.length ? up.map(v => {
+    const d = daysBetween(t, v.nextDate), vet = db.vets.find(x => x.id === v.vetId);
+    const cls = d < 0 ? 'bg-red-50 border-red-200' : d <= 3 ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200';
+    return `<div class="border ${cls} rounded-xl p-2.5 space-y-1.5">
+      <div class="flex items-center justify-between gap-2"><b>${esc(vetName(v.vetId))}</b><span class="chip ${d < 0 ? 'bg-red-100 text-red-700' : 'bg-white text-gray-700 border'}">${d8(v.nextDate)} • ${d === 0 ? 'اليوم' : d < 0 ? `فات بـ ${-d} يوم` : `بعد ${d} يوم`}</span></div>
+      ${v.nextNote ? `<div class="text-gray-600">${esc(v.nextNote)}</div>` : ''}
+      <div class="flex flex-wrap items-center gap-1.5">${callButtons(vet && vet.phone)}<button onclick="markVetNextDone('${v.id}')" class="chip bg-white border border-gray-300 text-gray-700 !py-1">تم ✓</button></div></div>`;
+  }).join('') : '<p class="text-gray-400 text-center py-2">لا توجد مواعيد قادمة</p>';
+  // قائمة الزيارات
+  let list = [...V].sort((a, b) => b.date.localeCompare(a.date));
+  if (vetFilter === 'debt') list = list.filter(v => visitRem(v) > 0);
+  if (!V.length) { $('vetList').innerHTML = empty('لا توجد زيارات مسجلة. أضف الطبيب من زر «الأطباء» ثم اضغط «+ زيارة».'); return; }
+  if (!list.length) { $('vetList').innerHTML = empty('لا توجد زيارات عليها دين 👌'); return; }
+  $('vetList').innerHTML = list.map(v => {
+    const vet = db.vets.find(x => x.id === v.vetId), total = visitTotal(v), p = visitPaid(v), rem = visitRem(v), pct = total ? Math.min(100, Math.round(p / total * 100)) : 100;
+    const animals = visitAnimalsText(v);
+    return `<div class="card p-3.5 text-xs">
+      <div class="flex justify-between items-start gap-2 mb-1.5">
+        <div class="min-w-0"><h4 class="font-extrabold text-sm text-gray-900">🩺 ${esc(vetName(v.vetId))}</h4><p class="text-gray-500">📅 ${d8(v.date)}${vet && vet.place ? ' • ' + esc(vet.place) : ''}</p></div>
+        <div class="flex flex-col gap-1 items-end">${callButtons(vet && vet.phone)}</div>
+      </div>
+      ${v.reason ? `<p class="text-gray-800 font-semibold">${esc(v.reason)}</p>` : ''}
+      ${animals ? `<p class="text-gray-600 mt-0.5">🐑 ${esc(animals)}</p>` : ''}
+      ${(v.medicines || []).length ? `<div class="flex flex-wrap gap-1 mt-1.5">${v.medicines.map(m => `<span class="chip bg-blue-50 text-blue-800">💊 ${esc(m.name)}${m.dose ? ' — ' + esc(m.dose) : ''}</span>`).join('')}</div>` : ''}
+      ${v.notes ? `<p class="text-gray-500 mt-1">📝 ${esc(v.notes)}</p>` : ''}
+      ${v.nextDate ? `<p class="mt-1 ${v.nextDone ? 'text-emerald-700' : 'text-blue-700'}">⏰ الموعد القادم: ${d8(v.nextDate)}${v.nextNote ? ' — ' + esc(v.nextNote) : ''}${v.nextDone ? ' (تم ✓)' : ''}</p>` : ''}
+      <div class="bg-gray-50 p-2.5 rounded-xl my-2 space-y-1.5">
+        <div class="flex justify-between"><span>الفحص: <b>${money(v.examFee)}</b></span><span>الأدوية: <b>${money(v.medCost)}</b></span></div>
+        <div class="flex justify-between"><span>الإجمالي: <b>${money(total)}</b></span><span>المدفوع: <b class="text-emerald-700">${money(p)}</b></span></div>
+        <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-full bg-emerald-500" style="width:${pct}%"></div></div>
+        <div class="font-bold ${rem > 0 ? 'text-red-600' : 'text-emerald-700'}">${rem > 0 ? `متبقي للطبيب: ${money(rem)}` : 'مسدَّد ✅'}</div>
+      </div>
+      <details class="mb-2"><summary class="text-blue-700 font-bold">🧾 التسديدات (${(v.payments || []).length})</summary>
+        <div class="mt-1.5 space-y-1">${(v.payments || []).map(x => `<div class="flex justify-between items-center bg-white border rounded-lg px-2 py-1"><span>${d8(x.date)} — <b>${money(x.amount)}</b> ${esc(x.note || '')}</span><button onclick="deleteVetPay('${v.id}','${x.id}')" aria-label="حذف التسديد" class="text-gray-400 hover:text-red-600">✕</button></div>`).join('') || '<p class="text-gray-400">لا توجد تسديدات</p>'}</div></details>
+      <div class="flex flex-wrap gap-1.5 font-bold text-[11px]">
+        ${rem > 0 ? `<button onclick="openVetPay('${v.id}')" class="bg-blue-600 text-white px-2.5 py-1 rounded-lg">+ تسديد</button>` : ''}
+        ${v.nextDate && !v.nextDone ? `<button onclick="markVetNextDone('${v.id}')" class="bg-amber-600 text-white px-2.5 py-1 rounded-lg">تم الموعد ✓</button>` : ''}
+        <button onclick="openVisitModal('${v.id}')" class="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-lg">✏️ تعديل</button>
+        <button onclick="deleteVisit('${v.id}')" class="text-red-500 px-1.5 py-1">حذف</button>
+      </div></div>`;
+  }).join('');
+}
+function markVetNextDone(id) {
+  const v = db.vetVisits.find(x => x.id === id); if (!v) return;
+  v.nextDone = true; saveDB(); renderAll(); toast('تم تأكيد الموعد', 'success');
+}
+
+// ---- الأطباء ----
+function openVets() { resetVetForm(); renderVets(); openModal('vetsModal'); }
+function resetVetForm() { $('vetId').value = ''; $('vetNameIn').value = ''; $('vetPhoneIn').value = ''; $('vetPlaceIn').value = ''; $('vetFormTitle').textContent = 'إضافة طبيب'; }
+function renderVets() {
+  $('vetsList').innerHTML = db.vets.length ? db.vets.map(v => {
+    const n = db.vetVisits.filter(x => x.vetId === v.id).length;
+    return `<div class="bg-gray-50 border rounded-xl p-2.5 space-y-1.5 text-xs">
+      <div class="flex items-center justify-between"><b class="text-sm">${esc(v.name)}</b><span class="text-[10px] text-gray-500">${n} زيارة</span></div>
+      <div class="text-gray-600">${v.phone ? '📞 ' + esc(v.phone) : ''}${v.place ? ' • 📍 ' + esc(v.place) : ''}</div>
+      <div class="flex flex-wrap items-center gap-1.5">${callButtons(v.phone)}<button onclick="editVet('${v.id}')" class="bg-white border px-2.5 py-1 rounded-lg font-bold text-[11px]">✏️ تعديل</button><button onclick="deleteVet('${v.id}')" class="text-red-500 text-[11px] px-1">حذف</button></div></div>`;
+  }).join('') : '<p class="text-xs text-gray-400 text-center py-3">لم تضف أي طبيب بعد.</p>';
+}
+function editVet(id) {
+  const v = db.vets.find(x => x.id === id); if (!v) return;
+  $('vetId').value = v.id; $('vetNameIn').value = v.name; $('vetPhoneIn').value = v.phone || ''; $('vetPlaceIn').value = v.place || '';
+  $('vetFormTitle').textContent = 'تعديل بيانات الطبيب';
+}
+function saveVet(e) {
+  e.preventDefault();
+  const id = $('vetId').value, name = $('vetNameIn').value.trim();
+  if (!name) return;
+  const rec = { id: id || uid('v_'), name, phone: $('vetPhoneIn').value.trim(), place: $('vetPlaceIn').value.trim() };
+  if (id) db.vets[db.vets.findIndex(x => x.id === id)] = rec; else db.vets.push(rec);
+  if (!saveDB()) return;
+  resetVetForm(); renderVets(); fillVisitVetSelect(rec.id); renderAll(); toast('تم حفظ بيانات الطبيب', 'success');
+}
+function deleteVet(id) {
+  const n = db.vetVisits.filter(v => v.vetId === id).length;
+  if (n) return toast(`لا يمكن حذف الطبيب: له ${n} زيارة مسجلة.`, 'error');
+  if (!confirm('حذف هذا الطبيب؟')) return;
+  db.vets = db.vets.filter(v => v.id !== id); saveDB(); renderVets(); fillVisitVetSelect(); renderAll();
+}
+
+// ---- الزيارة ----
+function fillVisitVetSelect(selected) {
+  const sel = $('visVet'), keep = selected || sel.value;
+  sel.innerHTML = '<option value="">— غير محدد —</option>' + db.vets.map(v => `<option value="${v.id}">${esc(v.name)}</option>`).join('');
+  if (keep && db.vets.some(v => v.id === keep)) sel.value = keep;
+}
+function addMedRow(name = '', dose = '') {
+  const row = document.createElement('div');
+  row.className = 'med-row flex gap-1.5';
+  row.innerHTML = `<input class="medName flex-1 p-1.5 border border-gray-300 rounded-lg text-xs bg-white" list="medNames" placeholder="اسم الدواء" value="${esc(name)}" aria-label="اسم الدواء">
+    <input class="medDose w-24 p-1.5 border border-gray-300 rounded-lg text-xs bg-white" placeholder="الجرعة" value="${esc(dose)}" aria-label="الجرعة">
+    <button type="button" onclick="this.parentElement.remove()" aria-label="حذف الدواء" class="text-red-500 font-bold px-1">✕</button>`;
+  $('medRows').appendChild(row);
+}
+function onVisAllChange() {
+  const all = $('visAll').checked;
+  document.querySelectorAll('.visSheep').forEach(c => { c.disabled = all; if (all) c.checked = false; });
+}
+function calcVisitTotal() {
+  const total = num($('visExam').value) + num($('visMed').value);
+  const paid = Math.min(total, num($('visPaid').value));
+  $('visTotalLine').textContent = `الإجمالي المستحق للطبيب: ${money(total)}`;
+  $('visRemain').value = money(Math.max(0, total - paid));
+}
+function openVisitModal(id = null) {
+  const v = id ? db.vetVisits.find(x => x.id === id) : null;
+  $('visitModalTitle').textContent = v ? '✏️ تعديل الزيارة' : '🩺 تسجيل زيارة بيطري';
+  $('visitId').value = v ? v.id : '';
+  fillVisitVetSelect(v ? v.vetId : (db.vets.length === 1 ? db.vets[0].id : ''));
+  $('visDate').value = v ? v.date : today();
+  $('visReason').value = v ? (v.reason || '') : '';
+  $('visNotes').value = v ? (v.notes || '') : '';
+  const chosen = new Set(v ? v.sheepIds : []);
+  $('visAnimals').innerHTML = db.sheep.filter(s => isActive(s) || chosen.has(s.id)).map(s =>
+    `<label class="flex items-center gap-1 bg-white border rounded-lg px-1.5 py-1"><input type="checkbox" class="visSheep" value="${s.id}" ${chosen.has(s.id) ? 'checked' : ''}> <span class="truncate">${esc(s.tag)}</span></label>`).join('') || '<span class="text-gray-400 col-span-3">لا توجد بطاقات في القطيع</span>';
+  $('visAll').checked = !!(v && v.all); onVisAllChange();
+  $('visLog').checked = true;
+  const names = [...new Set(db.vetVisits.flatMap(x => x.medicines.map(m => m.name)))];
+  $('medNames').innerHTML = names.map(n => `<option value="${esc(n)}">`).join('');
+  $('medRows').innerHTML = '';
+  (v && v.medicines.length ? v.medicines : [{ name: '', dose: '' }]).forEach(m => addMedRow(m.name, m.dose));
+  $('visExam').value = v ? num(v.examFee) : 0; $('visMed').value = v ? num(v.medCost) : 0;
+  $('visPaid').value = 0; $('visPaidWrap').classList.toggle('hidden', !!v);
+  $('visNextDate').value = v ? (v.nextDate || '') : ''; $('visNextNote').value = v ? (v.nextNote || '') : '';
+  calcVisitTotal();
+  openModal('visitModal');
+}
+function saveVisit(e) {
+  e.preventDefault();
+  const id = $('visitId').value, date = $('visDate').value || today();
+  const meds = [...document.querySelectorAll('#medRows .med-row')].map(r => ({ name: r.querySelector('.medName').value.trim(), dose: r.querySelector('.medDose').value.trim() })).filter(m => m.name);
+  const all = $('visAll').checked;
+  const sheepIds = all ? [] : [...document.querySelectorAll('.visSheep:checked')].map(c => c.value);
+  const exam = num($('visExam').value), med = num($('visMed').value), total = exam + med;
+  const old = id ? db.vetVisits.find(x => x.id === id) : null;
+  if (old && total < visitPaid(old)) return toast(`الإجمالي أقل من المبلغ المسدَّد فعلاً (${money(visitPaid(old))})`, 'error');
+  const paid = old ? 0 : Math.min(total, num($('visPaid').value));
+  const nextDate = $('visNextDate').value;
+  const rec = Object.assign({ payments: [] }, old, {
+    id: old ? old.id : uid('vv_'), vetId: $('visVet').value, date, reason: $('visReason').value.trim(), notes: $('visNotes').value.trim(),
+    all, sheepIds, medicines: meds, examFee: exam, medCost: med, nextDate, nextNote: nextDate ? $('visNextNote').value.trim() : '',
+    nextDone: old && old.nextDate === nextDate ? !!old.nextDone : false
+  });
+  if (!old && paid > 0) rec.payments.push({ id: uid('vp_'), amount: paid, date, note: paid >= total ? 'دفع كامل' : 'دفعة عند الزيارة' });
+  // السجل الصحي: احذف أحداث هذه الزيارة القديمة ثم أعد إنشاءها
+  db.sheep.forEach(s => { s.events = (s.events || []).filter(ev => ev.visitId !== rec.id); });
+  if ($('visLog').checked && (all || sheepIds.length) && (meds.length || rec.reason)) {
+    const targets = all ? db.sheep.filter(isActive) : db.sheep.filter(s => sheepIds.includes(s.id));
+    const note = `${rec.reason || 'فحص بيطري'}${meds.length ? ' — ' + meds.map(m => m.name + (m.dose ? ' ' + m.dose : '')).join(' + ') : ''} (${vetName(rec.vetId)})`;
+    targets.forEach(s => s.events.push({ id: uid('ev_'), type: 'treatment', date, note, value: 0, nextDue: '', done: false, visitId: rec.id }));
+  }
+  if (old) db.vetVisits[db.vetVisits.findIndex(x => x.id === id)] = rec; else db.vetVisits.unshift(rec);
+  if (!saveDB()) return;
+  closeModal('visitModal'); renderAll(); toast('تم حفظ الزيارة', 'success');
+}
+function deleteVisit(id) {
+  const v = db.vetVisits.find(x => x.id === id); if (!v) return;
+  if (!confirm('حذف هذه الزيارة مع تسديداتها وما سجّلته في السجل الصحي؟')) return;
+  db.sheep.forEach(s => { s.events = (s.events || []).filter(ev => ev.visitId !== id); });
+  db.vetVisits = db.vetVisits.filter(x => x.id !== id); saveDB(); renderAll();
+}
+function openVetPay(id) {
+  const v = db.vetVisits.find(x => x.id === id); if (!v) return;
+  $('vpId').value = id; $('vpTitle').textContent = `${vetName(v.vetId)} — ${d8(v.date)}`;
+  $('vpDebt').textContent = `المتبقي: ${money(visitRem(v))}`;
+  $('vpAmount').value = visitRem(v); $('vpAmount').max = visitRem(v); $('vpDate').value = today(); $('vpNote').value = '';
+  openModal('vetPayModal');
+}
+function saveVetPay(e) {
+  e.preventDefault();
+  const v = db.vetVisits.find(x => x.id === $('vpId').value); if (!v) return;
+  const amt = num($('vpAmount').value);
+  if (amt <= 0) return toast('أدخل مبلغاً صحيحاً', 'error');
+  if (amt > visitRem(v)) return toast(`المبلغ أكبر من المتبقي (${money(visitRem(v))})`, 'error');
+  v.payments.push({ id: uid('vp_'), amount: amt, date: $('vpDate').value || today(), note: $('vpNote').value.trim() });
+  if (!saveDB()) return;
+  closeModal('vetPayModal'); renderAll(); toast('تم تسجيل التسديد (أُضيف للمصاريف)', 'success');
+}
+function deleteVetPay(vid, pid) {
+  if (!confirm('حذف هذا التسديد؟ سيزيد الدين وينقص من المصاريف.')) return;
+  const v = db.vetVisits.find(x => x.id === vid); if (!v) return;
+  v.payments = v.payments.filter(p => p.id !== pid); saveDB(); renderAll();
+}
+
+/* =====================================================================
+   الإعدادات، النسخ الاحتياطي، التصدير
+   ===================================================================== */
+function openSettings() {
+  const s = db.settings;
+  $('setFarm').value = s.farm || ''; $('setPhone').value = s.phone || ''; $('setPlace').value = s.place || ''; $('setWage').value = s.wage || '';
+  let size = 0; try { size = (localStorage.getItem(DB_KEY) || '').length; } catch (_) {}
+  $('backupInfo').textContent = `حجم البيانات: ${(size / 1024).toFixed(0)} كيلوبايت • ${db.sheep.length} بطاقة • آخر نسخة احتياطية: ${s.lastBackup ? d8(s.lastBackup) : 'لا يوجد'}`;
+  openModal('settingsModal');
+}
+function saveSettings() {
+  Object.assign(db.settings, { farm: $('setFarm').value.trim(), phone: $('setPhone').value.trim(), place: $('setPlace').value.trim(), wage: num($('setWage').value) });
+  if (!saveDB()) return;
+  renderAll(); toast('تم حفظ الإعدادات', 'success');
+}
+function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+async function exportBackup() {
+  const photos = {};
+  for (const s of db.sheep) if (s.photo) { const d = await Photos.get(s.photo); if (d) photos[s.photo] = d; }
+  download(new Blob([JSON.stringify({ app: 'mawashi-dz', v: 4, exportedAt: new Date().toISOString(), db, photos })], { type: 'application/json' }), `نسخة_مواشي_الجزائر_${today()}.json`);
+  db.settings.lastBackup = today(); saveDB(); openSettings(); toast('تم تنزيل النسخة الاحتياطية', 'success');
+}
+function importBackup(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = async () => {
+    try {
+      const data = JSON.parse(r.result);
+      if (!data || !data.db || !Array.isArray(data.db.sheep)) throw new Error('bad');
+      if (!confirm(`استيراد النسخة؟ سيتم استبدال كل البيانات الحالية.\nالمحتوى: ${data.db.sheep.length} بطاقة، ${(data.db.sales || []).length} عملية بيع.`)) return;
+      const next = normalize(data.db);
+      await Photos.clear();
+      for (const [id, d] of Object.entries(data.photos || {})) await Photos.put(id, d);
+      db = next;
+      if (!saveDB()) return;
+      closeModal('settingsModal'); renderAll(); toast('تم استيراد النسخة بنجاح', 'success');
+    } catch (_) { toast('الملف غير صالح كنسخة احتياطية', 'error'); }
+  };
+  r.readAsText(f); e.target.value = '';
+}
+function exportCSV(kind) {
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  let head, rows;
+  if (kind === 'herd') {
+    head = ['رقم الحلق', 'السلالة', 'الجنس', 'العمر', 'الوزن', 'الحالة الصحية', 'الوضع', 'السعر', 'ملاحظات'];
+    rows = db.sheep.map(s => [s.tag, s.breed, GENDERS[s.gender], ageText(s.birthDate), s.weight, HEALTH[s.health], STATUS[s.status], s.price, s.notes]);
+  } else if (kind === 'sales') {
+    head = ['التاريخ', 'الصنف', 'الزبون', 'الهاتف', 'الثمن', 'المدفوع', 'المتبقي', 'طريقة الدفع', 'التسليم'];
+    rows = db.sales.map(s => [s.date, s.item, s.buyer, s.phone, s.total, paidOf(s), remOf(s), { cash: 'نقداً', credit: 'كريدي', installments: 'تقسيط' }[s.payType], s.delivery === 'taken' ? 'تم' : 'بانتظار الاستلام']);
+  } else if (kind === 'vet') {
+    head = ['التاريخ', 'الطبيب', 'السبب', 'الرؤوس', 'الأدوية', 'أتعاب الفحص', 'ثمن الأدوية', 'الإجمالي', 'المدفوع', 'المتبقي', 'الموعد القادم'];
+    rows = db.vetVisits.map(v => [v.date, vetName(v.vetId), v.reason, visitAnimalsText(v), v.medicines.map(m => m.name + (m.dose ? ' ' + m.dose : '')).join(' + '), v.examFee, v.medCost, visitTotal(v), visitPaid(v), visitRem(v), v.nextDate]);
+  } else {
+    head = ['التاريخ', 'النوع', 'الفئة', 'المبلغ', 'التفاصيل'];
+    rows = financeEntries().map(e => [e.date, e.type === 'income' ? 'مدخول' : 'مصروف', e.category, e.amount, e.note]);
+  }
+  const csv = '﻿' + [head, ...rows].map(r => r.map(q).join(',')).join('\r\n');
+  download(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${kind}_${today()}.csv`);
+}
+function loadDemo() {
+  if ((db.sheep.length || db.sales.length || db.finance.length) && !confirm('سيُستبدل كل ما لديك ببيانات تجريبية. متأكد؟')) return;
+  const t = today(), ago = n => addDays(t, -n), ahead = n => addDays(t, n);
+  db = defaultDB();
+  db.settings.farm = 'مزرعة تجريبية'; db.settings.place = 'الجلفة';
+  db.sheep = [
+    { id: 's_1', tag: 'DZ-101', breed: 'أولاد جلال', gender: 'ewe', health: 'healthy', birthDate: ago(900), breedingDate: '', weight: 62, status: 'present', price: 0, notes: 'ولدت توأم العام الماضي', events: [{ id: 'e1', type: 'lambing', date: ago(120), note: 'توأم', value: 2, nextDue: '', done: false }, { id: 'e2', type: 'vaccine', date: ago(30), note: 'التسمم المعوي', value: 0, nextDue: ahead(5), done: false }], saleId: '' },
+    { id: 's_2', tag: 'DZ-204', breed: 'أولاد جلال', gender: 'lamb', health: 'healthy', birthDate: ago(240), breedingDate: '', weight: 54, status: 'forSale', price: 78000, notes: 'خروف تسمين ممتاز', events: [{ id: 'e3', type: 'weight', date: ago(60), note: '', value: 38, nextDue: '', done: false }, { id: 'e4', type: 'weight', date: ago(1), note: '', value: 54, nextDue: '', done: false }], saleId: '' },
+    { id: 's_3', tag: 'DZ-118', breed: 'الحمراء (الدغمة)', gender: 'ewe', health: 'pregnant', birthDate: ago(1100), breedingDate: ago(125), weight: 58, status: 'present', price: 0, notes: '', events: [], saleId: '' },
+    { id: 's_4', tag: 'DZ-150', breed: 'الرمبي', gender: 'ram', health: 'healthy', birthDate: ago(1500), breedingDate: '', weight: 95, status: 'present', price: 0, notes: 'كبش فحل للتناسل', events: [], saleId: '' }
+  ];
+  db.sales = [{ id: 'sale_1', sheepId: '', item: 'خروف أولاد جلال #DZ-190', total: 85000, payType: 'installments', installmentNote: 'دفعتان — الباقي الشهر القادم', buyer: 'الحاج بلقاسم', phone: '0661000000', delivery: 'left', pickupDate: ahead(10), date: ago(3), payments: [{ id: 'p1', amount: 50000, date: ago(3), note: 'عربون' }] }];
+  db.finance = [
+    { id: 'f1', type: 'expense', category: 'أعلاف (شعير / نخالة)', amount: 45000, date: ago(2), note: 'شراء 10 قناطير شعير' },
+    { id: 'f2', type: 'expense', category: 'تبن وقرط', amount: 24000, date: ago(2), note: '40 بالة تبن' },
+    { id: 'f3', type: 'expense', category: 'بيطري وأدوية', amount: 8500, date: ago(1), note: 'لقاحات وفيتامينات' }
+  ];
+  db.grazing = [{ id: 'g1', shepherd: 'عمي الحاج قدور', date: ago(1), wage: 2000, location: 'السهول الشرقية', notes: 'رعي صباحي ومسائي' }];
+  db.vets = [{ id: 'v1', name: 'د. كمال بن علي', phone: '0555123456', place: 'عيادة الجلفة' }];
+  db.vetVisits = [{ id: 'vv1', vetId: 'v1', date: ago(10), reason: 'إسهال عند الخرفان', sheepIds: ['s_2'], all: false,
+    medicines: [{ name: 'أوكسي تتراسيكلين', dose: 'حقنة 5 مل' }, { name: 'فيتامين AD3E', dose: '' }], examFee: 3000, medCost: 4500,
+    payments: [{ id: 'vp1', amount: 3000, date: ago(10), note: 'أتعاب الفحص' }], nextDate: ahead(4), nextNote: 'متابعة الحالة', nextDone: false, notes: '' }];
+  Photos.clear(); saveDB(); closeModal('settingsModal'); renderAll(); toast('تم تحميل البيانات التجريبية', 'success');
+}
+function resetAll() {
+  if (!confirm('⚠️ سيتم مسح كل البيانات والصور نهائياً من هذا الجهاز.\nهل حفظت نسخة احتياطية؟')) return;
+  if (prompt('للتأكيد اكتب كلمة: مسح') !== 'مسح') return toast('أُلغي المسح', 'info');
+  db = defaultDB(); Photos.clear(); saveDB(); closeModal('settingsModal'); renderAll(); toast('تم مسح كل البيانات', 'success');
+}
+
+/* =====================================================================
+   التشغيل
+   ===================================================================== */
+setCountMode('crowd');
+switchTab('home');
+renderAll();
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
