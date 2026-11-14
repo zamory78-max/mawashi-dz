@@ -1,0 +1,68 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['index.html', 'manifest.json', 'sw.js', 'icon-*.png', '.github/workflows/build-apk.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Prepare web assets
+        run: |
+          mkdir -p build/www
+          cp index.html manifest.json icon-192.png icon-512.png build/www/
+          # service worker is not needed inside the native app
+          sed -i "s#navigator.serviceWorker.register('sw.js')#Promise.resolve()#" build/www/index.html
+
+      - name: Create Capacitor Android project
+        working-directory: build
+        run: |
+          npm init -y >/dev/null
+          npm i @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          cat > capacitor.config.json <<'JSON'
+          { "appId": "dz.mawashi.app", "appName": "مواشي الجزائر", "webDir": "www",
+            "android": { "allowMixedContent": false } }
+          JSON
+          npx cap add android
+          npx cap sync android
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <application#' $M
+          # force RTL / Arabic UI
+          sed -i 's#<application#<application android:supportsRtl="true"#' $M
+          sed -i 's#<application android:supportsRtl="true"\(.*\)android:supportsRtl="true"#<application\1android:supportsRtl="true"#' $M || true
+
+      - name: Build APK (installable, signed with debug key)
+        working-directory: build/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Collect APK
+        run: cp build/android/app/build/outputs/apk/debug/app-debug.apk mawashi-dz.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mawashi-dz-apk
+          path: mawashi-dz.apk
+
+      - name: Publish to Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create latest mawashi-dz.apk --title "مواشي الجزائر (APK)" --notes "آخر نسخة APK — حمّل الملف وثبّته على الهاتف." --target "$GITHUB_SHA"
