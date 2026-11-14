@@ -44,9 +44,6 @@ jobs:
           npx cap sync android
           M=android/app/src/main/AndroidManifest.xml
           sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <application#' $M
-          # force RTL / Arabic UI
-          sed -i 's#<application#<application android:supportsRtl="true"#' $M
-          sed -i 's#<application android:supportsRtl="true"\(.*\)android:supportsRtl="true"#<application\1android:supportsRtl="true"#' $M || true
 
       - name: Build APK (installable, signed with debug key)
         working-directory: build/android
