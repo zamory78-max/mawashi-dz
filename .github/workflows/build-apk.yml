@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['index.html', 'manifest.json', 'sw.js', 'icon-*.png', '.github/workflows/build-apk.yml']
+    paths: ['index.html', 'manifest.json', 'sw.js', 'icon-*.png', 'android-icons/**', '.github/workflows/build-apk.yml']
 
 permissions:
   contents: write
@@ -46,15 +46,11 @@ jobs:
           sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <application#' $M
 
       - name: Apply app icon
-        working-directory: build/android/app/src/main/res
         run: |
-          rm -rf mipmap-anydpi-v26
-          for d in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
-            n=${d%%:*}; sz=${d##*:}
-            convert ../../../../../../icon-512.png -resize ${sz}x${sz} mipmap-$n/ic_launcher.png
-            cp mipmap-$n/ic_launcher.png mipmap-$n/ic_launcher_round.png
-            rm -f mipmap-$n/ic_launcher_foreground.png
-          done
+          RES=build/android/app/src/main/res
+          rm -rf $RES/mipmap-anydpi-v26
+          rm -f $RES/mipmap-*/ic_launcher_foreground.png
+          cp -r android-icons/* $RES/
 
       - name: Build APK (installable, signed with debug key)
         working-directory: build/android
