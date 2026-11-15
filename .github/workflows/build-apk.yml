@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['index.html', 'manifest.json', 'sw.js', 'icon-*.png', 'android-icons/**', '.github/workflows/build-apk.yml']
+    paths: ['index.html', 'manifest.json', 'sw.js', 'icon-*.png', 'android-icons/**', 'scripts/**', '.github/workflows/build-apk.yml']
 
 permissions:
   contents: write
@@ -30,6 +30,16 @@ jobs:
           cp index.html manifest.json icon-192.png icon-512.png build/www/
           # service worker is not needed inside the native app
           sed -i "s#navigator.serviceWorker.register('sw.js')#Promise.resolve()#" build/www/index.html
+
+      - name: Make app fully offline (Tailwind, font, TensorFlow model)
+        run: |
+          mkdir -p build/offline
+          cd build/offline
+          npm init -y >/dev/null
+          npm i tailwindcss@3.4.17 @tensorflow/tfjs@4.17.0 @tensorflow-models/coco-ssd@2.2.3
+          cd ../..
+          node scripts/build-offline.mjs build/www build/offline
+          ls -la build/www build/www/lib build/www/fonts 2>/dev/null || true
 
       - name: Create Capacitor Android project
         working-directory: build

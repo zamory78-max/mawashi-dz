@@ -1609,10 +1609,13 @@ async function loadModel() {
   Cam.modelState = 'loading';
   try {
     if (!window.cocoSsd) {
-      await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js');
-      await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
+      if (window.MW_LOCAL_CV) { await loadScript('lib/tf.min.js'); await loadScript('lib/coco-ssd.min.js'); }
+      else {
+        await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js');
+        await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
+      }
     }
-    Cam.model = await window.cocoSsd.load(); Cam.modelState = 'ready';
+    Cam.model = await window.cocoSsd.load(window.MW_LOCAL_CV ? { base: 'lite_mobilenet_v2', modelUrl: 'lib/coco/model.json' } : undefined); Cam.modelState = 'ready';
   } catch (e) { console.warn(e); Cam.modelState = 'failed'; }
   return Cam.model;
 }
