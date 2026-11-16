@@ -1633,17 +1633,31 @@ function loadScript(src) { return new Promise((res, rej) => { const s = document
 async function loadModel() {
   if (Cam.model) return Cam.model;
   if (Cam.modelState === 'loading') return null;
-  Cam.modelState = 'loading';
+  Cam.modelState = 'loading'; Cam.lastError = '';
+  let stage = 'scripts', lastErr = null;
   try {
     if (!window.cocoSsd) {
-      if (window.MW_LOCAL_CV) { await loadScript('lib/tf.min.js'); await loadScript('lib/coco-ssd.min.js'); }
-      else {
-        await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js');
-        await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
+      const sets = [];
+      if (window.MW_LOCAL_CV) sets.push(['lib/tf.min.js', 'lib/coco-ssd.min.js']);
+      sets.push(['https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js', 'https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js']);
+      sets.push(['https://unpkg.com/@tensorflow/tfjs@4.17.0/dist/tf.min.js', 'https://unpkg.com/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js']);
+      for (const [a, b] of sets) {
+        try { await loadScript(a); await loadScript(b); if (window.cocoSsd) break; } catch (e) { lastErr = e; }
       }
+      if (!window.cocoSsd) throw lastErr || new Error('cocoSsd missing');
     }
-    Cam.model = await window.cocoSsd.load(window.MW_LOCAL_CV ? { base: 'lite_mobilenet_v2', modelUrl: 'lib/coco/model.json' } : undefined); Cam.modelState = 'ready';
-  } catch (e) { console.warn(e); Cam.modelState = 'failed'; }
+    stage = 'backend';
+    try { await window.tf.ready(); } catch (_) { await window.tf.setBackend('cpu'); await window.tf.ready(); }
+    stage = 'weights';
+    const opts = []; if (window.MW_LOCAL_CV) opts.push({ base: 'lite_mobilenet_v2', modelUrl: 'lib/coco/model.json' });
+    opts.push(undefined);
+    for (const o of opts) { try { Cam.model = await window.cocoSsd.load(o); break; } catch (e) { lastErr = e; } }
+    if (!Cam.model) throw lastErr || new Error('model load failed');
+    Cam.modelState = 'ready';
+  } catch (e) {
+    console.warn(e); Cam.modelState = 'failed';
+    Cam.lastError = `${stage}: ${String((e && e.message) || e).slice(0, 90)} | local=${window.MW_LOCAL_CV ? 'yes' : 'no'} | online=${navigator.onLine}`;
+  }
   return Cam.model;
 }
 async function startCamera() {
@@ -1664,7 +1678,7 @@ async function startCamera() {
     const m = await loadModel();
     if (Cam.source !== 'camera') return;
     if (m) camStatus(Cam.mode === 'crowd' ? 'تتبع الحوش نشط 🟢' : 'عدّ المرور نشط 🟢', 'green');
-    else { camStatus('الكشف الآلي غير متاح', 'red'); showCamError('تعذّر تحميل نموذج الذكاء الاصطناعي (يحتاج اتصالاً بالإنترنت في أول تشغيل). استعمل <b>لقطة التصحيح باللمس</b> أو الأزرار ±1.'); }
+    else { camStatus('الكشف الآلي غير متاح', 'red'); showCamError('تعذّر تحميل نموذج الذكاء الاصطناعي. استعمل <b>لقطة التصحيح باللمس</b> أو الأزرار ±1، أو أعد تشغيل الكاميرا.<br><span dir="ltr" class="font-mono text-[10px] break-all">' + esc(Cam.lastError || '') + '</span>'); }
   } catch (err) {
     Cam.stopAll();
     const msg = err && err.name === 'NotAllowedError' ? 'تم رفض إذن الكاميرا. فعّله من إعدادات المتصفح.' : (err && err.name === 'NotFoundError' ? 'لا توجد كاميرا في هذا الجهاز.' : (err && err.message) || 'خطأ غير معروف');

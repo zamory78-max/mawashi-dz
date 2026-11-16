@@ -40,6 +40,8 @@ jobs:
           cd ../..
           node scripts/build-offline.mjs build/www build/offline
           ls -la build/www build/www/lib build/www/fonts 2>/dev/null || true
+          grep -q 'MW_LOCAL_CV' build/www/index.html && echo "CV LOCAL: OK" || echo "::warning::CV libs/model were NOT bundled (will use CDN)"
+          grep -q 'id="tw-built"' build/www/index.html && echo "TAILWIND: OK" || echo "::warning::Tailwind was NOT built locally"
 
       - name: Create Capacitor Android project
         working-directory: build
