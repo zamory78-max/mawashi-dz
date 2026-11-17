@@ -82,3 +82,13 @@ jobs:
         run: |
           gh release delete latest --yes --cleanup-tag 2>/dev/null || true
           gh release create latest mawashi-dz.apk --title "مواشي الجزائر (APK)" --notes "آخر نسخة APK — حمّل الملف وثبّته على الهاتف." --target "$GITHUB_SHA"
+
+      - name: نشر نسخة في مستودع التحميلات العام (apps-downloads)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.DOWNLOADS_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::warning::DOWNLOADS_TOKEN غير مضبوط، تم تخطي النشر في apps-downloads"; exit 0; fi
+          gh release view mawashi -R zamory78-max/apps-downloads >/dev/null 2>&1 || \
+            gh release create mawashi -R zamory78-max/apps-downloads --title "مواشي الجزائر" --notes "آخر نسخة من مواشي الجزائر"
+          gh release upload mawashi mawashi-dz.apk -R zamory78-max/apps-downloads --clobber
